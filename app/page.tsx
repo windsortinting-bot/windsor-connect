@@ -1,11 +1,39 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Heart, MapPin, Coffee, Sparkles, Beer, Utensils } from "lucide-react";
+import { supabase } from "../lib/supabaseClient";
 
 export default function WindsorConnectLanding() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setStatus("loading");
+
+    const { error } = await supabase.from("waitlist").insert([{ email }]);
+
+    if (error) {
+      setStatus("error");
+      setMessage(
+        error.message.includes("duplicate")
+          ? "You're already on the list!"
+          : "Something went wrong. Try again."
+      );
+    } else {
+      setStatus("success");
+      setMessage("You're on the list! We'll be in touch soon.");
+      setEmail("");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      {/* Header */}
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="bg-gradient-to-tr from-rose-500 to-pink-500 p-2 rounded-xl text-white shadow-lg shadow-rose-500/20">
@@ -15,11 +43,15 @@ export default function WindsorConnectLanding() {
             Windsor<span className="text-rose-500">Connect</span>
           </span>
         </div>
-        <button className="bg-rose-500 hover:bg-rose-600 text-white font-medium px-4 py-2 rounded-full text-sm transition-all shadow-md shadow-rose-500/20">
+        <button
+          onClick={() => (window.location.href = "/auth")}
+          className="bg-rose-500 hover:bg-rose-600 text-white font-medium px-4 py-2 rounded-full text-sm transition-all shadow-md shadow-rose-500/20"
+        >
           Get Started
         </button>
       </header>
 
+      {/* Main Content */}
       <main className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-16 pb-12 max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-6">
           <Sparkles className="w-3.5 h-3.5" />
@@ -34,38 +66,73 @@ export default function WindsorConnectLanding() {
         </h1>
 
         <p className="mt-6 text-slate-400 text-lg sm:text-xl max-w-2xl leading-relaxed">
-          The first city-focused dating app built specifically for Windsor singles. Skip scattered matches and connect with locals in your neighborhood.
+          The first city-focused dating app built specifically for Windsor
+          singles. Skip scattered matches and connect with locals in your
+          neighborhood.
         </p>
 
-        <div className="mt-8 w-full max-w-md flex flex-col sm:flex-row gap-2">
+        {/* Waitlist Form */}
+        <form
+          onSubmit={handleSubmit}
+          className="mt-8 w-full max-w-md flex flex-col sm:flex-row gap-2"
+        >
           <input
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email for early access..."
+            required
             className="flex-1 bg-slate-900 border border-slate-800 focus:border-rose-500 text-white placeholder-slate-500 px-4 py-3 rounded-xl outline-none transition-all text-sm"
           />
           <button
-  onClick={() => (window.location.href = "/auth")}
-  className="bg-rose-500 hover:bg-rose-600 text-white font-medium px-4 py-2 rounded-full text-sm transition-all shadow-md shadow-rose-500/20"
->
-  Get Started
-</button>
-        </div>
+            type="submit"
+            disabled={status === "loading"}
+            className="bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-lg shadow-rose-500/25 whitespace-nowrap text-sm disabled:opacity-60"
+          >
+            {status === "loading" ? "Joining..." : "Join Windsor List"}
+          </button>
+        </form>
 
+        {message && (
+          <p
+            className={`mt-3 text-sm ${
+              status === "success" ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {message}
+          </p>
+        )}
+
+        {/* Neighborhood Tags */}
         <div className="mt-12 flex flex-wrap justify-center items-center gap-2 text-xs text-slate-400">
           <span className="text-slate-500">Popular hubs:</span>
-          {["Walkerville", "Ford City", "Downtown", "Riverside", "South Windsor", "UWindsor"].map((hood) => (
-            <span key={hood} className="bg-slate-900 border border-slate-800 px-3 py-1 rounded-full flex items-center gap-1">
+          {[
+            "Walkerville",
+            "Ford City",
+            "Downtown",
+            "Riverside",
+            "South Windsor",
+            "UWindsor",
+          ].map((hood) => (
+            <span
+              key={hood}
+              className="bg-slate-900 border border-slate-800 px-3 py-1 rounded-full flex items-center gap-1"
+            >
               <MapPin className="w-3 h-3 text-rose-500" />
               {hood}
             </span>
           ))}
         </div>
 
+        {/* First Date Perks */}
         <div className="mt-20 w-full text-left">
           <div className="border-t border-slate-800/80 pt-12 mb-8 text-center sm:text-left">
-            <h2 className="text-2xl font-bold text-white">First Date Perks in Windsor</h2>
+            <h2 className="text-2xl font-bold text-white">
+              First Date Perks in Windsor
+            </h2>
             <p className="text-slate-400 text-sm mt-1">
-              Match on Windsor Connect and enjoy exclusive local perks on your first meetup.
+              Match on Windsor Connect and enjoy exclusive local perks on your
+              first meetup.
             </p>
           </div>
 
@@ -75,8 +142,12 @@ export default function WindsorConnectLanding() {
                 <Coffee className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-white">Anchor Coffee House</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">Walkerville</p>
-              <p className="text-xs text-slate-400 mt-2">2-for-1 drip coffees or 15% off your first coffee date order.</p>
+              <p className="text-xs text-rose-400 font-medium mt-0.5">
+                Walkerville
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                2-for-1 drip coffees or 15% off your first coffee date order.
+              </p>
             </div>
 
             <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl">
@@ -84,8 +155,13 @@ export default function WindsorConnectLanding() {
                 <Beer className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-white">Craft Heads Brewing</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">Downtown</p>
-              <p className="text-xs text-slate-400 mt-2">Free pretzel appetizer when you both order a pint on your match date.</p>
+              <p className="text-xs text-rose-400 font-medium mt-0.5">
+                Downtown
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                Free pretzel appetizer when you both order a pint on your match
+                date.
+              </p>
             </div>
 
             <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl">
@@ -93,13 +169,19 @@ export default function WindsorConnectLanding() {
                 <Utensils className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-white">Vito’s Pizzeria</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">Via Italia</p>
-              <p className="text-xs text-slate-400 mt-2">Complimentary dessert to share at the end of your first dinner date.</p>
+              <p className="text-xs text-rose-400 font-medium mt-0.5">
+                Via Italia
+              </p>
+              <p className="text-xs text-slate-400 mt-2">
+                Complimentary dessert to share at the end of your first dinner
+                date.
+              </p>
             </div>
           </div>
         </div>
       </main>
 
+      {/* Footer */}
       <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
         © {new Date().getFullYear()} Windsor Connect. Built for Windsor, ON.
       </footer>

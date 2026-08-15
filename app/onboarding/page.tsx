@@ -8,6 +8,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [age, setAge] = useState("");
@@ -19,10 +20,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push("/auth");
         return;
@@ -43,21 +41,46 @@ export default function OnboardingPage() {
         setBio(data.bio || "");
         setPhotoUrl(data.photo_urls?.[0] || "");
       }
-
       setLoading(false);
     };
-
     loadProfile();
   }, [router]);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("profile-photos")
+      .upload(fileName, file, { upsert: true });
+
+    if (uploadError) {
+      alert("Upload failed: " + uploadError.message);
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("profile-photos")
+      .getPublicUrl(fileName);
+
+    setPhotoUrl(urlData.publicUrl);
+    setUploading(false);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const { error } = await supabase
@@ -80,7 +103,7 @@ export default function OnboardingPage() {
     if (!error) {
       router.push("/swipe");
     } else {
-      alert("Error saving profile");
+      alert("Error saving profile: " + error.message);
     }
   };
 
@@ -99,6 +122,30 @@ export default function OnboardingPage() {
         <p className="text-slate-400 mb-8">This helps people in Windsor find you</p>
 
         <form onSubmit={handleSave} className="space-y-5">
+          {/* Photo Upload */}
+          <div>
+            <label className="block text-sm text-slate-400 mb-2">Profile Photo</label>
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center">
+                {photoUrl ? (
+                  <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-slate-500 text-xs">No photo</span>
+                )}
+              </div>
+              <label className="cursor-pointer bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-sm">
+                {uploading ? "Uploading..." : "Choose Photo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                  disabled={uploading}
+                />
+              </label>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm text-slate-400 mb-1">First Name</label>
             <input
@@ -181,20 +228,9 @@ export default function OnboardingPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm text-slate-400 mb-1">Photo URL (temporary)</label>
-            <input
-              type="url"
-              value={photoUrl}
-              onChange={(e) => setPhotoUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
-            />
-          </div>
-
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || uploading}
             className="w-full bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold py-3 rounded-xl mt-4 disabled:opacity-60"
           >
             {saving ? "Saving..." : "Finish & Start Swiping"}
