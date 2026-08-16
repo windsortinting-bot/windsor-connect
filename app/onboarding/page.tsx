@@ -20,7 +20,9 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         router.push("/auth");
         return;
@@ -52,7 +54,9 @@ export default function OnboardingPage() {
 
     setUploading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     const fileExt = file.name.split(".").pop();
@@ -80,7 +84,9 @@ export default function OnboardingPage() {
     e.preventDefault();
     setSaving(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     const { error } = await supabase
@@ -128,7 +134,11 @@ export default function OnboardingPage() {
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center">
                 {photoUrl ? (
-                  <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                  <img
+                    src={photoUrl}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <span className="text-slate-500 text-xs">No photo</span>
                 )}
