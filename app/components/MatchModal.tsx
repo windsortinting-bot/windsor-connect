@@ -36,9 +36,7 @@ export default function MatchModal({
         </button>
 
         <div className="pt-10 pb-6 text-center">
-          <div className="flex justify-center mb-4">
-            <Heart className="w-12 h-12 text-rose-500 fill-rose-500 animate-pulse" />
-          </div>
+          <Heart className="w-12 h-12 text-rose-500 fill-rose-500 mx-auto mb-4 animate-pulse" />
           <h2 className="text-3xl font-bold text-white">It’s a Match!</h2>
           <p className="text-slate-400 mt-2">
             You and {otherUser.first_name} liked each other
@@ -46,7 +44,7 @@ export default function MatchModal({
         </div>
 
         <div className="flex justify-center items-center gap-4 px-6 mb-8">
-          <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-rose-500">
+          <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-rose-500 bg-slate-800">
             {currentUserPhoto ? (
               <img
                 src={currentUserPhoto}
@@ -54,13 +52,13 @@ export default function MatchModal({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-slate-700 flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center">
                 <Heart className="w-8 h-8 text-slate-500" />
               </div>
             )}
           </div>
 
-          <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-rose-500">
+          <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-rose-500 bg-slate-800">
             {otherUser.photo_urls?.[0] ? (
               <img
                 src={otherUser.photo_urls[0]}
@@ -68,7 +66,7 @@ export default function MatchModal({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-slate-700 flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center">
                 <Heart className="w-8 h-8 text-slate-500" />
               </div>
             )}
@@ -77,7 +75,10 @@ export default function MatchModal({
 
         <div className="px-6 pb-8 space-y-3">
           <button
-            onClick={() => router.push(`/chat/${matchId}`)}
+            onClick={() => {
+              onClose();
+              router.push(`/chat/${matchId}`);
+            }}
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold py-3.5 rounded-xl"
           >
             <MessageCircle className="w-5 h-5" />
@@ -86,7 +87,7 @@ export default function MatchModal({
 
           <button
             onClick={onClose}
-            className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-3.5 rounded-xl transition-colors"
+            className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-3.5 rounded-xl"
           >
             Keep Swiping
           </button>
