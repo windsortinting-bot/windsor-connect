@@ -83,7 +83,9 @@ export default function SwipePage() {
     );
 
     // Combine everyone to exclude
-    const excludeIds = [...new Set([...swipedIds, ...blockedIds, currentUserId])];
+    const excludeIds = [
+      ...new Set([...swipedIds, ...blockedIds, currentUserId]),
+    ];
 
     // Your preferences
     const { data: myProfile } = await supabase
@@ -204,12 +206,32 @@ export default function SwipePage() {
     if (!userId || currentIndex >= profiles.length) return;
     const target = profiles[currentIndex];
 
-    if (!confirm(`Report ${target.first_name}?`)) return;
+    const reason = prompt(
+      "Why are you reporting this profile?\n\n1 - Inappropriate photos\n2 - Fake profile\n3 - Harassment\n4 - Other\n\nType 1, 2, 3 or 4:"
+    );
+
+    if (!reason) return;
+
+    const reasons: Record<string, string> = {
+      "1": "Inappropriate photos",
+      "2": "Fake profile",
+      "3": "Harassment",
+      "4": "Other",
+    };
+
+    const finalReason = reasons[reason] || "Other";
 
     await supabase.from("reports").insert({
       reporter_id: userId,
       reported_id: target.id,
-      reason: "Reported from swipe",
+      reason: finalReason,
+    });
+
+    // Also pass them so they disappear
+    await supabase.from("swipes").insert({
+      swiper_id: userId,
+      target_id: target.id,
+      action: "pass",
     });
 
     alert("Thanks for the report. We’ll review it.");

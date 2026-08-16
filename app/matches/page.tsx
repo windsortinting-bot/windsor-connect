@@ -65,15 +65,29 @@ export default function MatchesPage() {
         .select("*")
         .in("id", otherIds);
 
-      const formatted = uniqueMatches.map((match) => {
-        const otherId =
-          match.user1_id === user.id ? match.user2_id : match.user1_id;
-        const other = profiles?.find((p) => p.id === otherId);
-        return {
-          matchId: match.id,
-          other,
-        };
-      });
+      // Get last message for each match
+      const formatted = await Promise.all(
+        uniqueMatches.map(async (match) => {
+          const otherId =
+            match.user1_id === user.id ? match.user2_id : match.user1_id;
+          const other = profiles?.find((p) => p.id === otherId);
+
+          const { data: lastMsg } = await supabase
+            .from("messages")
+            .select("content, created_at, sender_id")
+            .eq("match_id", match.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          return {
+            matchId: match.id,
+            other,
+            lastMessage: lastMsg?.content || null,
+            lastMessageTime: lastMsg?.created_at || null,
+          };
+        })
+      );
 
       setMatches(formatted.filter((m) => m.other));
       setLoading(false);
@@ -96,7 +110,6 @@ export default function MatchesPage() {
       return;
     }
 
-    // Also remove any reverse match just in case
     if (userId) {
       const match = matches.find((m) => m.matchId === matchId);
       if (match?.other?.id) {
@@ -122,7 +135,6 @@ export default function MatchesPage() {
       blocked_id: otherId,
     });
 
-    // Delete all matches between these two users
     await supabase
       .from("matches")
       .delete()
@@ -164,10 +176,9 @@ export default function MatchesPage() {
           <div className="space-y-5">
             {matches.map((item) => (
               <div key={item.matchId}>
-                {/* Main card */}
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
                   <div className="flex items-center gap-4">
-                    {/* Left side: photo + View Profile */}
+                    {/* Left: photo + View Profile */}
                     <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
                       <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800">
                         {item.other.photo_urls?.[0] ? (
@@ -192,7 +203,7 @@ export default function MatchesPage() {
                       </button>
                     </div>
 
-                    {/* Right side: click here to chat */}
+                    {/* Right: chat area with last message */}
                     <button
                       onClick={() => router.push(`/chat/${item.matchId}`)}
                       className="flex-1 flex items-center justify-between gap-3 bg-slate-800/60 hover:bg-slate-800 rounded-xl px-4 py-3 transition-colors text-left"
@@ -202,8 +213,10 @@ export default function MatchesPage() {
                           {item.other.first_name}
                           {item.other.age ? `, ${item.other.age}` : ""}
                         </p>
-                        <p className="text-sm text-rose-400 mt-0.5">
-                          Click here to chat
+                        <p className="text-sm text-slate-400 mt-0.5 truncate">
+                          {item.lastMessage
+                            ? item.lastMessage
+                            : "Click here to chat"}
                         </p>
                       </div>
                       <MessageCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
@@ -211,7 +224,6 @@ export default function MatchesPage() {
                   </div>
                 </div>
 
-                {/* Unmatch & Block under the card */}
                 <div className="flex justify-end gap-4 mt-1.5 px-1">
                   <button
                     onClick={() => handleUnmatch(item.matchId)}
