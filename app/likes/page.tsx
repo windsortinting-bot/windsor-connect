@@ -57,7 +57,6 @@ export default function LikesPage() {
   const fetchIncomingLikes = async (currentUserId: string) => {
     setLoading(true);
 
-    // People who liked you
     const { data: incoming, error: incomingError } = await supabase
       .from("swipes")
       .select("swiper_id")
@@ -79,7 +78,6 @@ export default function LikesPage() {
       return;
     }
 
-    // People you already swiped on
     const { data: yourSwipes } = await supabase
       .from("swipes")
       .select("target_id")
@@ -87,7 +85,6 @@ export default function LikesPage() {
 
     const alreadySwipedIds = (yourSwipes ?? []).map((s) => s.target_id);
 
-    // Only show people who liked you that you haven't responded to yet
     const pendingIds = likedYouIds.filter(
       (id) => !alreadySwipedIds.includes(id)
     );
@@ -128,9 +125,12 @@ export default function LikesPage() {
       action,
     });
 
-    // If you like them back → create match
     if (action === "like") {
-      const { data: newMatch, error: matchError } = await supabase
+      // Force show the match popup because they already liked you
+      let finalMatchId = "";
+
+      // Try to create the match
+      const { data: newMatch } = await supabase
         .from("matches")
         .insert({
           user1_id: userId < target.id ? userId : target.id,
@@ -140,11 +140,9 @@ export default function LikesPage() {
         .single();
 
       if (newMatch) {
-        setMatchedUser(target);
-        setMatchId(newMatch.id);
-        setShowMatch(true);
-      } else if (matchError) {
-        // Match might already exist — still try to show the popup
+        finalMatchId = newMatch.id;
+      } else {
+        // Match already exists — fetch it
         const { data: existing } = await supabase
           .from("matches")
           .select("id")
@@ -154,18 +152,19 @@ export default function LikesPage() {
           .maybeSingle();
 
         if (existing) {
-          setMatchedUser(target);
-          setMatchId(existing.id);
-          setShowMatch(true);
+          finalMatchId = existing.id;
         }
       }
+
+      // Always show the popup when liking from the Likes page
+      setMatchedUser(target);
+      setMatchId(finalMatchId || "temp");
+      setShowMatch(true);
     }
 
-    // Move to next person
     setCurrentIndex((prev) => prev + 1);
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
@@ -176,7 +175,6 @@ export default function LikesPage() {
 
   const currentProfile = profiles[currentIndex];
 
-  // Empty state
   if (!currentProfile) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center pb-24">
@@ -196,7 +194,6 @@ export default function LikesPage() {
     );
   }
 
-  // Main UI
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-24">
       <div className="w-full max-w-sm">
@@ -207,7 +204,6 @@ export default function LikesPage() {
           {currentIndex + 1} of {profiles.length}
         </p>
 
-        {/* Profile Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
           {currentProfile.photo_urls?.[0] ? (
             <img
@@ -248,7 +244,6 @@ export default function LikesPage() {
           </div>
         </div>
 
-        {/* Like / Pass buttons */}
         <div className="flex justify-center gap-6 mt-8">
           <button
             onClick={() => handleSwipeAction("pass")}
@@ -265,7 +260,6 @@ export default function LikesPage() {
         </div>
       </div>
 
-      {/* Match popup */}
       {matchedUser && (
         <MatchModal
           isOpen={showMatch}

@@ -77,7 +77,11 @@ export default function MatchModal({
           <button
             onClick={() => {
               onClose();
-              router.push(`/chat/${matchId}`);
+              if (matchId && matchId !== "temp") {
+                router.push(`/chat/${matchId}`);
+              } else {
+                router.push("/matches");
+              }
             }}
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-semibold py-3.5 rounded-xl"
           >
