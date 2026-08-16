@@ -89,6 +89,20 @@ export default function MatchesPage() {
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
 
+  const handleBlockFromMatch = async (otherId: string, matchId: string) => {
+    if (!userId) return;
+    if (!confirm("Block this person? They will be removed from your matches."))
+      return;
+
+    await supabase.from("blocks").insert({
+      blocker_id: userId,
+      blocked_id: otherId,
+    });
+
+    await supabase.from("matches").delete().eq("id", matchId);
+    setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
@@ -153,7 +167,7 @@ export default function MatchesPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-end gap-1">
                   <button
                     onClick={() => router.push(`/chat/${item.matchId}`)}
                     className="p-2 rounded-full bg-slate-800 hover:bg-slate-700"
@@ -162,9 +176,17 @@ export default function MatchesPage() {
                   </button>
                   <button
                     onClick={() => handleUnmatch(item.matchId)}
-                    className="text-xs text-slate-500 hover:text-rose-400 px-2"
+                    className="text-xs text-slate-500 hover:text-rose-400"
                   >
                     Unmatch
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleBlockFromMatch(item.other.id, item.matchId)
+                    }
+                    className="text-xs text-slate-600 hover:text-rose-500"
+                  >
+                    Block
                   </button>
                 </div>
               </div>
