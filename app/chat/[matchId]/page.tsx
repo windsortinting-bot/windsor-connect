@@ -1,33 +1,53 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import { Send, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Send, AlertCircle } from "lucide-react";
+
+interface Message {
+  id: string;
+  match_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
+
+const MAX_UNANSWERED = 3;
 
 export default function ChatPage() {
-  const { matchId } = useParams();
   const router = useRouter();
-  const [messages, setMessages] = useState<any[]>([]);
+  const params = useParams();
+  const matchId = params.matchId as string;
+
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [userId, setUserId] = useState<string | null>(null);
-  const [otherUser, setOtherUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [otherName, setOtherName] = useState("Chat");
+  const [otherId, setOtherId] = useState<string | null>(null);
+  const [canSend, setCanSend] = useState(true);
+  const [limitMessage, setLimitMessage] = useState("");
+  const [matchExpired, setMatchExpired] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) {
         router.push("/auth");
         return;
       }
+
       setUserId(user.id);
 
-      // Get the match and the other person
+      // Load match + other person
       const { data: match } = await supabase
         .from("matches")
-        .select("*")
+        .select("id, user1_id, user2_id, expires_at, last_message_at")
         .eq("id", matchId)
         .single();
 
@@ -36,15 +56,32 @@ export default function ChatPage() {
         return;
       }
 
-      const otherId = match.user1_id === user.id ? match.user2_id : match.user1_id;
+      // Check expiry (no messages within window)
+      if (match.expires_at && new Date(match.expires_at) < new Date()) {
+        // Only expire if there were never any messages
+        const { count } = await supabase
+          .from("messages")
+          .select("*", { count: "exact", head: true })
+          .eq("match_id", matchId);
 
-      const { data: profile } = await supabase
+        if ((count ?? 0) === 0) {
+          setMatchExpired(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const oid =
+        match.user1_id === user.id ? match.user2_id : match.user1_id;
+      setOtherId(oid);
+
+      const { data: otherProfile } = await supabase
         .from("profiles")
-        .select("*")
-        .eq("id", otherId)
+        .select("first_name")
+        .eq("id", oid)
         .single();
 
-      setOtherUser(profile);
+      setOtherName(otherProfile?.first_name || "Chat");
 
       // Load messages
       const { data: msgs } = await supabase
@@ -53,13 +90,18 @@ export default function ChatPage() {
         .eq("match_id", matchId)
         .order("created_at", { ascending: true });
 
-      setMessages(msgs || []);
+      setMessages(msgs ?? []);
+      checkSendLimit(msgs ?? [], user.id);
       setLoading(false);
     };
 
     init();
+  }, [matchId, router]);
 
-    // Real-time new messages
+  // Realtime subscription
+  useEffect(() => {
+    if (!matchId) return;
+
     const channel = supabase
       .channel(`chat-${matchId}`)
       .on(
@@ -71,7 +113,13 @@ export default function ChatPage() {
           filter: `match_id=eq.${matchId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new]);
+          const msg = payload.new as Message;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            const next = [...prev, msg];
+            if (userId) checkSendLimit(next, userId);
+            return next;
+          });
         }
       )
       .subscribe();
@@ -79,23 +127,79 @@ export default function ChatPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [matchId, router]);
+  }, [matchId, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const checkSendLimit = (msgs: Message[], currentUserId: string) => {
+    if (msgs.length === 0) {
+      setCanSend(true);
+      setLimitMessage("");
+      return;
+    }
+
+    // Count consecutive messages from current user at the end
+    let unanswered = 0;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].sender_id === currentUserId) {
+        unanswered++;
+      } else {
+        break;
+      }
+    }
+
+    if (unanswered >= MAX_UNANSWERED) {
+      setCanSend(false);
+      setLimitMessage(
+        `You’ve sent ${MAX_UNANSWERED} messages in a row. Wait for a reply before sending more.`
+      );
+    } else {
+      setCanSend(true);
+      setLimitMessage("");
+    }
+  };
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !userId) return;
+    if (!newMessage.trim() || !userId || !canSend || matchExpired) return;
 
-    await supabase.from("messages").insert({
-      match_id: matchId,
-      sender_id: userId,
-      content: newMessage.trim(),
-    });
-
+    const content = newMessage.trim();
     setNewMessage("");
+
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
+        match_id: matchId,
+        sender_id: userId,
+        content,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error(error);
+      alert("Could not send message.");
+      return;
+    }
+
+    // Update match activity + clear expiry once conversation starts
+    await supabase
+      .from("matches")
+      .update({
+        last_message_at: new Date().toISOString(),
+        expires_at: null,
+      })
+      .eq("id", matchId);
+
+    if (data) {
+      setMessages((prev) => {
+        const next = [...prev, data];
+        checkSendLimit(next, userId);
+        return next;
+      });
+    }
   };
 
   if (loading) {
@@ -106,64 +210,96 @@ export default function ChatPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
-      {/* Header */}
-      <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => router.push("/matches")}>
-          <ArrowLeft className="w-6 h-6 text-white" />
+  if (matchExpired) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center">
+        <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
+        <h2 className="text-xl font-bold">This match expired</h2>
+        <p className="text-slate-400 mt-2 max-w-xs">
+          Neither of you started a conversation in time. Dead-end chats are
+          automatically closed.
+        </p>
+        <button
+          onClick={() => router.push("/matches")}
+          className="mt-6 bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-xl text-sm"
+        >
+          Back to Matches
         </button>
-        <div>
-          <h2 className="font-semibold text-white">
-            {otherUser?.first_name || "Chat"}
-          </h2>
-        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      {/* Header */}
+      <div className="border-b border-slate-800 px-4 py-3 flex items-center gap-3 sticky top-0 bg-slate-950/95 backdrop-blur z-10">
+        <button
+          onClick={() => router.push("/matches")}
+          className="text-slate-400 hover:text-white"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h1 className="font-semibold text-lg">{otherName}</h1>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.length === 0 && (
           <p className="text-center text-slate-500 text-sm mt-10">
-            No messages yet. Say hello!
+            Say hello — you have {MAX_UNANSWERED} messages before they need to
+            reply.
           </p>
         )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${
-              msg.sender_id === userId ? "justify-end" : "justify-start"
-            }`}
-          >
+        {messages.map((msg) => {
+          const isMe = msg.sender_id === userId;
+          return (
             <div
-              className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm ${
-                msg.sender_id === userId
-                  ? "bg-rose-500 text-white rounded-br-md"
-                  : "bg-slate-800 text-white rounded-bl-md"
-              }`}
+              key={msg.id}
+              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
             >
-              {msg.content}
+              <div
+                className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
+                  isMe
+                    ? "bg-rose-500 text-white rounded-br-md"
+                    : "bg-slate-800 text-slate-100 rounded-bl-md"
+                }`}
+              >
+                {msg.content}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef} />
       </div>
+
+      {/* Limit warning */}
+      {!canSend && (
+        <div className="px-4 py-2 bg-slate-900 border-t border-slate-800 text-center text-sm text-amber-400 flex items-center justify-center gap-2">
+          <AlertCircle className="w-4 h-4" />
+          {limitMessage}
+        </div>
+      )}
 
       {/* Input */}
       <form
         onSubmit={sendMessage}
-        className="bg-slate-900 border-t border-slate-800 p-4 flex gap-3"
+        className="border-t border-slate-800 p-3 flex gap-2 bg-slate-950"
       >
         <input
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 bg-slate-800 border border-slate-700 rounded-full px-4 py-3 text-white outline-none focus:border-rose-500"
+          placeholder={
+            canSend ? "Type a message..." : "Waiting for a reply..."
+          }
+          disabled={!canSend}
+          className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-rose-500 disabled:opacity-50"
         />
         <button
           type="submit"
-          className="bg-rose-500 hover:bg-rose-600 text-white p-3 rounded-full"
+          disabled={!canSend || !newMessage.trim()}
+          className="bg-rose-500 hover:bg-rose-600 disabled:opacity-40 text-white rounded-xl px-4 flex items-center justify-center"
         >
           <Send className="w-5 h-5" />
         </button>

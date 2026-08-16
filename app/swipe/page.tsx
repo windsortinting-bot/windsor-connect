@@ -8,8 +8,10 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, X, MapPin } from "lucide-react";
+import { Heart, X, MapPin, Clock } from "lucide-react";
 import MatchModal from "../components/MatchModal";
+
+const DAILY_LIMIT = 8;
 
 interface Profile {
   id: string;
@@ -32,6 +34,8 @@ export default function SwipePage() {
   const [showMatch, setShowMatch] = useState(false);
   const [matchedUser, setMatchedUser] = useState<Profile | null>(null);
   const [matchId, setMatchId] = useState("");
+  const [swipesLeft, setSwipesLeft] = useState(DAILY_LIMIT);
+  const [limitReached, setLimitReached] = useState(false);
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -49,19 +53,42 @@ export default function SwipePage() {
 
         const { data: myProfile } = await supabase
           .from("profiles")
-          .select("photo_urls")
+          .select("photo_urls, daily_swipes_used, daily_swipes_reset_at")
           .eq("id", user.id)
           .single();
 
         setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
-        await fetchProfiles(user.id);
+
+        // Reset daily count if needed
+        await supabase.rpc("reset_daily_swipes_if_needed", {
+          p_user_id: user.id,
+        });
+
+        // Re-fetch after possible reset
+        const { data: refreshed } = await supabase
+          .from("profiles")
+          .select("daily_swipes_used")
+          .eq("id", user.id)
+          .single();
+
+        const used = refreshed?.daily_swipes_used ?? 0;
+        const left = Math.max(0, DAILY_LIMIT - used);
+        setSwipesLeft(left);
+
+        if (left <= 0) {
+          setLimitReached(true);
+          setLoading(false);
+          return;
+        }
+
+        await fetchProfiles(user.id, left);
       }
     };
 
     getUser();
   }, []);
 
-  const fetchProfiles = async (currentUserId: string) => {
+  const fetchProfiles = async (currentUserId: string, maxToShow: number) => {
     setLoading(true);
 
     const { data: swiped } = await supabase
@@ -86,7 +113,7 @@ export default function SwipePage() {
 
     const { data: myProfile } = await supabase
       .from("profiles")
-      .select("target_gender, gender")
+      .select("target_gender")
       .eq("id", currentUserId)
       .single();
 
@@ -95,7 +122,7 @@ export default function SwipePage() {
       .select("*")
       .eq("is_onboarded", true)
       .order("created_at", { ascending: false })
-      .limit(30);
+      .limit(maxToShow);
 
     if (excludeIds.length > 0) {
       query = query.not("id", "in", `(${excludeIds.join(",")})`);
@@ -117,8 +144,32 @@ export default function SwipePage() {
     setLoading(false);
   };
 
+  const incrementDailySwipe = async () => {
+    if (!userId) return;
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("daily_swipes_used")
+      .eq("id", userId)
+      .single();
+
+    const newUsed = (data?.daily_swipes_used ?? 0) + 1;
+
+    await supabase
+      .from("profiles")
+      .update({ daily_swipes_used: newUsed })
+      .eq("id", userId);
+
+    const left = Math.max(0, DAILY_LIMIT - newUsed);
+    setSwipesLeft(left);
+
+    if (left <= 0) {
+      setLimitReached(true);
+    }
+  };
+
   const handleSwipe = async (action: "like" | "pass") => {
-    if (!userId || currentIndex >= profiles.length) return;
+    if (!userId || currentIndex >= profiles.length || limitReached) return;
 
     const target = profiles[currentIndex];
 
@@ -127,6 +178,8 @@ export default function SwipePage() {
       target_id: target.id,
       action,
     });
+
+    await incrementDailySwipe();
 
     if (action === "like") {
       const { data: mutual } = await supabase
@@ -143,6 +196,9 @@ export default function SwipePage() {
           .insert({
             user1_id: userId < target.id ? userId : target.id,
             user2_id: userId < target.id ? target.id : userId,
+            expires_at: new Date(
+              Date.now() + 5 * 24 * 60 * 60 * 1000
+            ).toISOString(), // 5 days if no messages
           })
           .select("id")
           .single();
@@ -188,6 +244,7 @@ export default function SwipePage() {
       action: "pass",
     });
 
+    await incrementDailySwipe();
     setCurrentIndex((prev) => prev + 1);
     x.set(0);
   };
@@ -223,6 +280,7 @@ export default function SwipePage() {
       action: "pass",
     });
 
+    await incrementDailySwipe();
     alert("Thanks for the report. We’ll review it.");
     setCurrentIndex((prev) => prev + 1);
     x.set(0);
@@ -236,28 +294,48 @@ export default function SwipePage() {
     );
   }
 
+  // Daily limit reached
+  if (limitReached) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center pb-28">
+        <Clock className="w-16 h-16 text-rose-500 mb-4" />
+        <h2 className="text-2xl font-bold">That’s your daily batch</h2>
+        <p className="text-slate-400 mt-3 max-w-xs">
+          You get {DAILY_LIMIT} carefully chosen people per day. Come back
+          tomorrow for a fresh set.
+        </p>
+        <p className="text-slate-500 text-sm mt-6">
+          Tip: Check your <span className="text-rose-400">Likes</span> — someone
+          may already like you.
+        </p>
+      </div>
+    );
+  }
+
   const currentProfile = profiles[currentIndex];
 
   if (!currentProfile) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center pb-24">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center pb-28">
         <Heart className="w-16 h-16 text-rose-500 mb-4" />
-        <h2 className="text-2xl font-bold">No more profiles</h2>
+        <h2 className="text-2xl font-bold">No more profiles right now</h2>
         <p className="text-slate-400 mt-2 max-w-xs">
-          You’ve seen everyone for now. Check back later!
+          You’ve seen everyone available today. Check back later.
         </p>
-        <button
-          onClick={() => userId && fetchProfiles(userId)}
-          className="mt-6 bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-xl text-sm"
-        >
-          Refresh
-        </button>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-28">
+      {/* Daily remaining counter */}
+      <div className="w-full max-w-sm mb-4 flex justify-between items-center text-sm text-slate-400">
+        <span>Today’s batch</span>
+        <span className="text-rose-400 font-medium">
+          {swipesLeft} left
+        </span>
+      </div>
+
       <div className="w-full max-w-sm relative">
         <AnimatePresence>
           <motion.div
