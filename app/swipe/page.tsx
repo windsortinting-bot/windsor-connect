@@ -15,11 +15,12 @@ interface Profile {
   id: string;
   first_name: string;
   age: number | null;
+  gender: string | null;
   city: string;
   neighborhood: string | null;
   bio: string | null;
   photo_urls: string[] | null;
-  gender?: string | null;
+  target_gender?: string | null;
 }
 
 export default function SwipePage() {
@@ -28,8 +29,6 @@ export default function SwipePage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string | null>(null);
-  const [exitX, setExitX] = useState(0);
-
   const [showMatch, setShowMatch] = useState(false);
   const [matchedUser, setMatchedUser] = useState<Profile | null>(null);
   const [matchId, setMatchId] = useState("");
@@ -55,77 +54,86 @@ export default function SwipePage() {
           .single();
 
         setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
-        fetchProfiles(user.id);
-      } else {
-        setLoading(false);
+        await fetchProfiles(user.id);
       }
     };
+
     getUser();
   }, []);
 
   const fetchProfiles = async (currentUserId: string) => {
-    const { data: myProfile } = await supabase
-      .from("profiles")
-      .select("target_gender")
-      .eq("id", currentUserId)
-      .single();
+    setLoading(true);
 
+    // People you already swiped on
     const { data: swiped } = await supabase
       .from("swipes")
       .select("target_id")
       .eq("swiper_id", currentUserId);
 
+    const swipedIds = (swiped ?? []).map((s) => s.target_id);
+
+    // People you blocked or who blocked you
     const { data: blocked } = await supabase
       .from("blocks")
-      .select("blocked_id")
-      .eq("blocker_id", currentUserId);
+      .select("blocker_id, blocked_id")
+      .or(`blocker_id.eq.${currentUserId},blocked_id.eq.${currentUserId}`);
 
-    const swipedIds = (swiped ?? []).map((s) => s.target_id);
-    const blockedIds = (blocked ?? []).map((b) => b.blocked_id);
-    const excludeIds = [...new Set([...swipedIds, ...blockedIds])];
+    const blockedIds = (blocked ?? []).map((b) =>
+      b.blocker_id === currentUserId ? b.blocked_id : b.blocker_id
+    );
+
+    // Combine everyone to exclude
+    const excludeIds = [...new Set([...swipedIds, ...blockedIds, currentUserId])];
+
+    // Your preferences
+    const { data: myProfile } = await supabase
+      .from("profiles")
+      .select("target_gender, gender")
+      .eq("id", currentUserId)
+      .single();
 
     let query = supabase
       .from("profiles")
       .select("*")
       .eq("is_onboarded", true)
-      .neq("id", currentUserId)
       .order("created_at", { ascending: false })
       .limit(30);
+
+    if (excludeIds.length > 0) {
+      query = query.not("id", "in", `(${excludeIds.join(",")})`);
+    }
 
     // Gender filter
     if (myProfile?.target_gender && myProfile.target_gender !== "everyone") {
       query = query.eq("gender", myProfile.target_gender);
     }
 
-    if (excludeIds.length > 0) {
-      query = query.not("id", "in", `(${excludeIds.join(",")})`);
-    }
-
     const { data, error } = await query;
 
     if (error) {
       console.error("Fetch profiles error:", error);
+    } else {
+      setProfiles(data ?? []);
     }
 
-    setProfiles(data ?? []);
+    setCurrentIndex(0);
     setLoading(false);
   };
 
-  const handleSwipe = async (direction: "like" | "pass") => {
+  const handleSwipe = async (action: "like" | "pass") => {
     if (!userId || currentIndex >= profiles.length) return;
 
     const target = profiles[currentIndex];
-    setExitX(direction === "like" ? 500 : -500);
 
     // Save the swipe
     await supabase.from("swipes").insert({
       swiper_id: userId,
       target_id: target.id,
-      action: direction,
+      action,
     });
 
-    // Check for mutual like and create match
-    if (direction === "like") {
+    if (action === "like") {
+      // Check if they already liked you
       const { data: mutual } = await supabase
         .from("swipes")
         .select("id")
@@ -135,8 +143,8 @@ export default function SwipePage() {
         .maybeSingle();
 
       if (mutual) {
-        // Try to create the match
-        const { data: newMatch, error: matchError } = await supabase
+        // Create match
+        const { data: newMatch } = await supabase
           .from("matches")
           .insert({
             user1_id: userId < target.id ? userId : target.id,
@@ -145,12 +153,10 @@ export default function SwipePage() {
           .select("id")
           .single();
 
-        if (newMatch) {
-          setMatchedUser(target);
-          setMatchId(newMatch.id);
-          setShowMatch(true);
-        } else {
-          // Match may already exist — fetch it and still show popup
+        let finalMatchId = newMatch?.id || "";
+
+        if (!newMatch) {
+          // Match might already exist
           const { data: existing } = await supabase
             .from("matches")
             .select("id")
@@ -159,37 +165,31 @@ export default function SwipePage() {
             )
             .maybeSingle();
 
-          if (existing) {
-            setMatchedUser(target);
-            setMatchId(existing.id);
-            setShowMatch(true);
-          } else {
-            console.error("Match creation failed:", matchError);
-          }
+          if (existing) finalMatchId = existing.id;
         }
+
+        setMatchedUser(target);
+        setMatchId(finalMatchId || "temp");
+        setShowMatch(true);
       }
     }
 
-    setTimeout(() => {
-      setCurrentIndex((prev) => prev + 1);
-      setExitX(0);
-      x.set(0);
-    }, 250);
+    setCurrentIndex((prev) => prev + 1);
+    x.set(0);
   };
 
   const handleBlock = async () => {
     if (!userId || currentIndex >= profiles.length) return;
     const target = profiles[currentIndex];
 
-    if (!confirm(`Block ${target.first_name}? They will no longer appear.`)) {
-      return;
-    }
+    if (!confirm(`Block ${target.first_name}?`)) return;
 
     await supabase.from("blocks").insert({
       blocker_id: userId,
       blocked_id: target.id,
     });
 
+    // Also record a pass so they don't come back
     await supabase.from("swipes").insert({
       swiper_id: userId,
       target_id: target.id,
@@ -197,30 +197,25 @@ export default function SwipePage() {
     });
 
     setCurrentIndex((prev) => prev + 1);
+    x.set(0);
   };
 
   const handleReport = async () => {
     if (!userId || currentIndex >= profiles.length) return;
     const target = profiles[currentIndex];
 
-    const reason = prompt("Why are you reporting this user? (optional)");
-    if (reason === null) return;
+    if (!confirm(`Report ${target.first_name}?`)) return;
 
     await supabase.from("reports").insert({
       reporter_id: userId,
       reported_id: target.id,
-      reason: reason || "No reason given",
+      reason: "Reported from swipe",
     });
 
-    alert("Report submitted. Thank you.");
+    alert("Thanks for the report. We’ll review it.");
+    setCurrentIndex((prev) => prev + 1);
+    x.set(0);
   };
-
-  const handleDragEnd = (_: any, info: any) => {
-    if (info.offset.x > 100) handleSwipe("like");
-    else if (info.offset.x < -100) handleSwipe("pass");
-  };
-
-  const currentProfile = profiles[currentIndex];
 
   if (loading) {
     return (
@@ -230,17 +225,19 @@ export default function SwipePage() {
     );
   }
 
+  const currentProfile = profiles[currentIndex];
+
   if (!currentProfile) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-6 text-center">
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center pb-24">
         <Heart className="w-16 h-16 text-rose-500 mb-4" />
-        <h2 className="text-2xl font-bold">No more profiles right now</h2>
-        <p className="text-slate-400 mt-3 max-w-xs">
-          Check back later — new people join Windsor Connect every day.
+        <h2 className="text-2xl font-bold">No more profiles</h2>
+        <p className="text-slate-400 mt-2 max-w-xs">
+          You’ve seen everyone for now. Check back later!
         </p>
         <button
-          onClick={() => window.location.reload()}
-          className="mt-8 bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl text-sm"
+          onClick={() => userId && fetchProfiles(userId)}
+          className="mt-6 bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-xl text-sm"
         >
           Refresh
         </button>
@@ -249,32 +246,35 @@ export default function SwipePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-24">
-      <div className="w-full max-w-sm relative h-[70vh] max-h-[580px]">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-28">
+      <div className="w-full max-w-sm relative">
         <AnimatePresence>
           <motion.div
             key={currentProfile.id}
-            className="absolute inset-0 bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-800 cursor-grab active:cursor-grabbing"
             style={{ x, rotate }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.9}
-            onDragEnd={handleDragEnd}
-            animate={{ x: exitX }}
-            transition={{ duration: 0.25 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.x > 100) {
+                handleSwipe("like");
+              } else if (info.offset.x < -100) {
+                handleSwipe("pass");
+              } else {
+                x.set(0);
+              }
+            }}
+            className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing"
           >
-            {/* LIKE stamp */}
+            {/* Like / Nope overlays */}
             <motion.div
               style={{ opacity: likeOpacity }}
-              className="absolute top-8 left-6 border-4 border-emerald-500 text-emerald-500 font-extrabold text-3xl px-4 py-1 rounded-lg -rotate-12 z-20"
+              className="absolute top-6 left-6 z-10 border-4 border-emerald-400 text-emerald-400 font-bold text-2xl px-4 py-1 rounded-lg rotate-[-20deg]"
             >
               LIKE
             </motion.div>
-
-            {/* NOPE stamp */}
             <motion.div
               style={{ opacity: nopeOpacity }}
-              className="absolute top-8 right-6 border-4 border-rose-500 text-rose-500 font-extrabold text-3xl px-4 py-1 rounded-lg rotate-12 z-20"
+              className="absolute top-6 right-6 z-10 border-4 border-rose-500 text-rose-500 font-bold text-2xl px-4 py-1 rounded-lg rotate-[20deg]"
             >
               NOPE
             </motion.div>
@@ -283,35 +283,35 @@ export default function SwipePage() {
               <img
                 src={currentProfile.photo_urls[0]}
                 alt={currentProfile.first_name}
-                className="w-full h-full object-cover pointer-events-none"
+                className="w-full h-96 object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                <Heart className="w-16 h-16 text-slate-600" />
+              <div className="w-full h-96 bg-slate-800 flex items-center justify-center">
+                <Heart className="w-12 h-12 text-slate-600" />
               </div>
             )}
 
-            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-6">
-              <div className="flex items-center gap-2">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-3">
                 <h2 className="text-3xl font-bold text-white">
                   {currentProfile.first_name}
                 </h2>
                 {currentProfile.age && (
-                  <span className="text-2xl text-slate-300">
+                  <span className="bg-slate-800 px-3 py-1 rounded-full text-sm text-slate-300">
                     {currentProfile.age}
                   </span>
                 )}
               </div>
 
               {currentProfile.neighborhood && (
-                <div className="flex items-center gap-1 text-rose-400 text-sm mt-1">
+                <div className="flex items-center gap-1 text-rose-400 text-sm mb-4">
                   <MapPin className="w-4 h-4" />
                   {currentProfile.neighborhood}
                 </div>
               )}
 
               {currentProfile.bio && (
-                <p className="text-slate-200 text-sm mt-2 line-clamp-2">
+                <p className="text-slate-300 leading-relaxed">
                   {currentProfile.bio}
                 </p>
               )}
@@ -337,26 +337,29 @@ export default function SwipePage() {
       </div>
 
       {/* Block & Report */}
-<div className="flex justify-center gap-4 mt-10 mb-4">
-  <button
-    onClick={handleBlock}
-    className="px-5 py-2.5 rounded-full border border-slate-700 bg-slate-900 text-slate-400 text-sm hover:border-rose-500/50 hover:text-rose-400 transition-all"
-  >
-    Block
-  </button>
-  <button
-    onClick={handleReport}
-    className="px-5 py-2.5 rounded-full border border-slate-700 bg-slate-900 text-slate-400 text-sm hover:border-rose-500/50 hover:text-rose-400 transition-all"
-  >
-    Report
-  </button>
-</div>
+      <div className="flex justify-center gap-4 mt-8">
+        <button
+          onClick={handleBlock}
+          className="px-5 py-2.5 rounded-full border border-slate-700 bg-slate-900 text-slate-400 text-sm hover:border-rose-500/50 hover:text-rose-400 transition-all"
+        >
+          Block
+        </button>
+        <button
+          onClick={handleReport}
+          className="px-5 py-2.5 rounded-full border border-slate-700 bg-slate-900 text-slate-400 text-sm hover:border-rose-500/50 hover:text-rose-400 transition-all"
+        >
+          Report
+        </button>
+      </div>
 
       {/* Match popup */}
       {matchedUser && (
         <MatchModal
           isOpen={showMatch}
-          onClose={() => setShowMatch(false)}
+          onClose={() => {
+            setShowMatch(false);
+            setMatchedUser(null);
+          }}
           matchId={matchId}
           otherUser={matchedUser}
           currentUserPhoto={currentUserPhoto}

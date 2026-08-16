@@ -39,6 +39,36 @@ export default function ProfilePage() {
     router.push("/");
   };
 
+  const handleDeleteAccount = async () => {
+    if (!confirm("This will permanently delete your account. Are you sure?"))
+      return;
+    if (!confirm("Really delete everything? This cannot be undone.")) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Delete related data
+    await supabase
+      .from("swipes")
+      .delete()
+      .or(`swiper_id.eq.${user.id},target_id.eq.${user.id}`);
+    await supabase
+      .from("matches")
+      .delete()
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+    await supabase
+      .from("blocks")
+      .delete()
+      .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`);
+    await supabase.from("profiles").delete().eq("id", user.id);
+
+    // Sign out
+    await supabase.auth.signOut();
+    router.push("/");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
@@ -97,7 +127,9 @@ export default function ProfilePage() {
             )}
 
             {profile?.bio && (
-              <p className="text-slate-300 mt-4 leading-relaxed">{profile.bio}</p>
+              <p className="text-slate-300 mt-4 leading-relaxed">
+                {profile.bio}
+              </p>
             )}
           </div>
         </div>
@@ -109,6 +141,14 @@ export default function ProfilePage() {
         >
           <Edit className="w-4 h-4" />
           Edit Profile
+        </button>
+
+        {/* Delete Account */}
+        <button
+          onClick={handleDeleteAccount}
+          className="w-full mt-3 text-sm text-slate-500 hover:text-rose-500 py-2"
+        >
+          Delete Account
         </button>
       </div>
     </div>

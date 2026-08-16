@@ -9,51 +9,73 @@ import { supabase } from "../../lib/supabaseClient";
 export default function BottomNav() {
   const pathname = usePathname();
   const [likesCount, setLikesCount] = useState(0);
+  const [matchesCount, setMatchesCount] = useState(0);
 
   useEffect(() => {
-    const loadCount = async () => {
+    const loadCounts = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // People who liked you
+      // ===== LIKES COUNT =====
       const { data: incoming } = await supabase
         .from("swipes")
         .select("swiper_id")
         .eq("target_id", user.id)
         .eq("action", "like");
 
-      if (!incoming || incoming.length === 0) {
+      if (incoming && incoming.length > 0) {
+        const { data: yourSwipes } = await supabase
+          .from("swipes")
+          .select("target_id")
+          .eq("swiper_id", user.id);
+
+        const alreadySwiped = new Set(
+          (yourSwipes ?? []).map((s) => s.target_id)
+        );
+        const pending = incoming.filter(
+          (s) => !alreadySwiped.has(s.swiper_id)
+        );
+        setLikesCount(pending.length);
+      } else {
         setLikesCount(0);
-        return;
       }
 
-      // People you already responded to
-      const { data: yourSwipes } = await supabase
-        .from("swipes")
-        .select("target_id")
-        .eq("swiper_id", user.id);
+      // ===== MATCHES COUNT =====
+      const { data: matchRows } = await supabase
+        .from("matches")
+        .select("id, user1_id, user2_id")
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
-      const alreadySwiped = new Set((yourSwipes ?? []).map((s) => s.target_id));
-      const pending = incoming.filter((s) => !alreadySwiped.has(s.swiper_id));
-      setLikesCount(pending.length);
+      if (matchRows && matchRows.length > 0) {
+        // Deduplicate people
+        const seen = new Set<string>();
+        matchRows.forEach((m) => {
+          const otherId =
+            m.user1_id === user.id ? m.user2_id : m.user1_id;
+          seen.add(otherId);
+        });
+        setMatchesCount(seen.size);
+      } else {
+        setMatchesCount(0);
+      }
     };
 
-    loadCount();
+    loadCounts();
 
-    // Refresh count every time the route changes
-    const interval = setInterval(loadCount, 15000);
+    // Refresh every 15 seconds
+    const interval = setInterval(loadCounts, 15000);
     return () => clearInterval(interval);
   }, [pathname]);
 
-  // Don't show nav on auth or landing
+  // Hide nav on landing and auth pages
   if (pathname === "/" || pathname.startsWith("/auth")) return null;
 
   const links = [
     { href: "/swipe", icon: Heart, label: "Swipe" },
     { href: "/likes", icon: Heart, label: "Likes", badge: likesCount },
-    { href: "/matches", icon: Users, label: "Matches" },
+    { href: "/matches", icon: Users, label: "Matches", badge: matchesCount },
     { href: "/profile", icon: User, label: "Profile" },
   ];
 
@@ -69,12 +91,16 @@ export default function BottomNav() {
               key={link.href}
               href={link.href}
               className={`relative flex flex-col items-center gap-0.5 text-xs ${
-                isActive ? "text-rose-500" : "text-slate-500 hover:text-slate-300"
+                isActive
+                  ? "text-rose-500"
+                  : "text-slate-500 hover:text-slate-300"
               }`}
             >
               <div className="relative">
-                <Icon className={`w-5 h-5 ${isActive ? "fill-rose-500" : ""}`} />
-                {link.badge && link.badge > 0 && (
+                <Icon
+                  className={`w-5 h-5 ${isActive ? "fill-rose-500" : ""}`}
+                />
+                {link.badge !== undefined && link.badge > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                     {link.badge > 9 ? "9+" : link.badge}
                   </span>
