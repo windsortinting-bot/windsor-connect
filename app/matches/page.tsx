@@ -42,7 +42,21 @@ export default function MatchesPage() {
         return;
       }
 
-      const otherIds = matchRows.map((m) =>
+      // Remove duplicate people (keep only the newest match with each person)
+      const seen = new Set<string>();
+      const uniqueMatches: any[] = [];
+
+      for (const match of matchRows) {
+        const otherId =
+          match.user1_id === user.id ? match.user2_id : match.user1_id;
+
+        if (!seen.has(otherId)) {
+          seen.add(otherId);
+          uniqueMatches.push(match);
+        }
+      }
+
+      const otherIds = uniqueMatches.map((m) =>
         m.user1_id === user.id ? m.user2_id : m.user1_id
       );
 
@@ -51,7 +65,7 @@ export default function MatchesPage() {
         .select("*")
         .in("id", otherIds);
 
-      const formatted = matchRows.map((match) => {
+      const formatted = uniqueMatches.map((match) => {
         const otherId =
           match.user1_id === user.id ? match.user2_id : match.user1_id;
         const other = profiles?.find((p) => p.id === otherId);
