@@ -42,7 +42,7 @@ export default function MatchesPage() {
         return;
       }
 
-      // Remove duplicate people (keep only the newest match with each person)
+      // Remove duplicates
       const seen = new Set<string>();
       const uniqueMatches: any[] = [];
 
@@ -131,52 +131,46 @@ export default function MatchesPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {matches.map((item) => (
-              <div
-                key={item.matchId}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-4"
-              >
-                <div
-                  className="w-16 h-16 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 cursor-pointer"
+              <div key={item.matchId}>
+                {/* Whole card is the chat button */}
+                <button
                   onClick={() => router.push(`/chat/${item.matchId}`)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 text-left hover:bg-slate-800/80 transition-colors"
                 >
-                  {item.other.photo_urls?.[0] ? (
-                    <img
-                      src={item.other.photo_urls[0]}
-                      alt={item.other.first_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Heart className="w-6 h-6 text-slate-600" />
-                    </div>
-                  )}
-                </div>
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800 flex-shrink-0">
+                    {item.other.photo_urls?.[0] ? (
+                      <img
+                        src={item.other.photo_urls[0]}
+                        alt={item.other.first_name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Heart className="w-6 h-6 text-slate-600" />
+                      </div>
+                    )}
+                  </div>
 
-                <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => router.push(`/chat/${item.matchId}`)}
-                >
-                  <p className="font-semibold text-white truncate">
-                    {item.other.first_name}
-                    {item.other.age ? `, ${item.other.age}` : ""}
-                  </p>
-                  <p className="text-sm text-slate-400 truncate">
-                    {item.other.neighborhood || "Windsor"}
-                  </p>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-white truncate">
+                      {item.other.first_name}
+                      {item.other.age ? `, ${item.other.age}` : ""}
+                    </p>
+                    <p className="text-sm text-slate-400 truncate">
+                      {item.other.neighborhood || "Windsor"}
+                    </p>
+                  </div>
 
-                <div className="flex flex-col items-end gap-1">
-                  <button
-                    onClick={() => router.push(`/chat/${item.matchId}`)}
-                    className="p-2 rounded-full bg-slate-800 hover:bg-slate-700"
-                  >
-                    <MessageCircle className="w-5 h-5 text-rose-400" />
-                  </button>
+                  <MessageCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+                </button>
+
+                {/* Unmatch & Block sit outside the chat area */}
+                <div className="flex justify-end gap-4 mt-1.5 px-1">
                   <button
                     onClick={() => handleUnmatch(item.matchId)}
-                    className="text-xs text-slate-500 hover:text-rose-400"
+                    className="text-xs text-slate-500 hover:text-rose-400 transition-colors"
                   >
                     Unmatch
                   </button>
@@ -184,7 +178,7 @@ export default function MatchesPage() {
                     onClick={() =>
                       handleBlockFromMatch(item.other.id, item.matchId)
                     }
-                    className="text-xs text-slate-600 hover:text-rose-500"
+                    className="text-xs text-slate-500 hover:text-rose-500 transition-colors"
                   >
                     Block
                   </button>
