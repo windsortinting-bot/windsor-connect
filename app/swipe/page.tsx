@@ -8,7 +8,7 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, X, MapPin, Clock } from "lucide-react";
+import { Heart, X, MapPin, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import MatchModal from "../components/MatchModal";
 
 const DAILY_LIMIT = 8;
@@ -23,14 +23,18 @@ interface Profile {
   bio: string | null;
   photo_urls: string[] | null;
   target_gender?: string | null;
+  min_age_pref?: number | null;
+  max_age_pref?: number | null;
 }
 
 export default function SwipePage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string | null>(null);
+  const [myAge, setMyAge] = useState<number | null>(null);
   const [showMatch, setShowMatch] = useState(false);
   const [matchedUser, setMatchedUser] = useState<Profile | null>(null);
   const [matchId, setMatchId] = useState("");
@@ -51,27 +55,22 @@ export default function SwipePage() {
       if (user) {
         setUserId(user.id);
 
-        const { data: myProfile } = await supabase
-          .from("profiles")
-          .select("photo_urls, daily_swipes_used, daily_swipes_reset_at")
-          .eq("id", user.id)
-          .single();
-
-        setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
-
-        // Reset daily count if needed
         await supabase.rpc("reset_daily_swipes_if_needed", {
           p_user_id: user.id,
         });
 
-        // Re-fetch after possible reset
-        const { data: refreshed } = await supabase
+        const { data: myProfile } = await supabase
           .from("profiles")
-          .select("daily_swipes_used")
+          .select(
+            "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender"
+          )
           .eq("id", user.id)
           .single();
 
-        const used = refreshed?.daily_swipes_used ?? 0;
+        setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
+        setMyAge(myProfile?.age ?? null);
+
+        const used = myProfile?.daily_swipes_used ?? 0;
         const left = Math.max(0, DAILY_LIMIT - used);
         setSwipesLeft(left);
 
@@ -81,14 +80,18 @@ export default function SwipePage() {
           return;
         }
 
-        await fetchProfiles(user.id, left);
+        await fetchProfiles(user.id, left, myProfile);
       }
     };
 
     getUser();
   }, []);
 
-  const fetchProfiles = async (currentUserId: string, maxToShow: number) => {
+  const fetchProfiles = async (
+    currentUserId: string,
+    maxToShow: number,
+    myProfile: any
+  ) => {
     setLoading(true);
 
     const { data: swiped } = await supabase
@@ -111,18 +114,12 @@ export default function SwipePage() {
       ...new Set([...swipedIds, ...blockedIds, currentUserId]),
     ];
 
-    const { data: myProfile } = await supabase
-      .from("profiles")
-      .select("target_gender")
-      .eq("id", currentUserId)
-      .single();
-
     let query = supabase
       .from("profiles")
       .select("*")
       .eq("is_onboarded", true)
       .order("created_at", { ascending: false })
-      .limit(maxToShow);
+      .limit(40);
 
     if (excludeIds.length > 0) {
       query = query.not("id", "in", `(${excludeIds.join(",")})`);
@@ -132,15 +129,34 @@ export default function SwipePage() {
       query = query.eq("gender", myProfile.target_gender);
     }
 
+    // Age range I want to see
+    if (myProfile?.min_age_pref) {
+      query = query.gte("age", myProfile.min_age_pref);
+    }
+    if (myProfile?.max_age_pref) {
+      query = query.lte("age", myProfile.max_age_pref);
+    }
+
     const { data, error } = await query;
 
     if (error) {
       console.error("Fetch profiles error:", error);
+      setProfiles([]);
     } else {
-      setProfiles(data ?? []);
+      // Mutual age filter: their preferred range must include my age
+      let filtered = data ?? [];
+      if (myProfile?.age) {
+        filtered = filtered.filter((p) => {
+          const min = p.min_age_pref ?? 18;
+          const max = p.max_age_pref ?? 99;
+          return myProfile.age >= min && myProfile.age <= max;
+        });
+      }
+      setProfiles(filtered.slice(0, maxToShow));
     }
 
     setCurrentIndex(0);
+    setPhotoIndex(0);
     setLoading(false);
   };
 
@@ -162,10 +178,7 @@ export default function SwipePage() {
 
     const left = Math.max(0, DAILY_LIMIT - newUsed);
     setSwipesLeft(left);
-
-    if (left <= 0) {
-      setLimitReached(true);
-    }
+    if (left <= 0) setLimitReached(true);
   };
 
   const handleSwipe = async (action: "like" | "pass") => {
@@ -198,7 +211,7 @@ export default function SwipePage() {
             user2_id: userId < target.id ? target.id : userId,
             expires_at: new Date(
               Date.now() + 5 * 24 * 60 * 60 * 1000
-            ).toISOString(), // 5 days if no messages
+            ).toISOString(),
           })
           .select("id")
           .single();
@@ -224,28 +237,27 @@ export default function SwipePage() {
     }
 
     setCurrentIndex((prev) => prev + 1);
+    setPhotoIndex(0);
     x.set(0);
   };
 
   const handleBlock = async () => {
     if (!userId || currentIndex >= profiles.length) return;
     const target = profiles[currentIndex];
-
     if (!confirm(`Block ${target.first_name}?`)) return;
 
     await supabase.from("blocks").insert({
       blocker_id: userId,
       blocked_id: target.id,
     });
-
     await supabase.from("swipes").insert({
       swiper_id: userId,
       target_id: target.id,
       action: "pass",
     });
-
     await incrementDailySwipe();
     setCurrentIndex((prev) => prev + 1);
+    setPhotoIndex(0);
     x.set(0);
   };
 
@@ -256,7 +268,6 @@ export default function SwipePage() {
     const reason = prompt(
       "Why are you reporting this profile?\n\n1 - Inappropriate photos\n2 - Fake profile\n3 - Harassment\n4 - Other\n\nType 1, 2, 3 or 4:"
     );
-
     if (!reason) return;
 
     const reasons: Record<string, string> = {
@@ -266,12 +277,10 @@ export default function SwipePage() {
       "4": "Other",
     };
 
-    const finalReason = reasons[reason] || "Other";
-
     await supabase.from("reports").insert({
       reporter_id: userId,
       reported_id: target.id,
-      reason: finalReason,
+      reason: reasons[reason] || "Other",
     });
 
     await supabase.from("swipes").insert({
@@ -283,6 +292,7 @@ export default function SwipePage() {
     await incrementDailySwipe();
     alert("Thanks for the report. We’ll review it.");
     setCurrentIndex((prev) => prev + 1);
+    setPhotoIndex(0);
     x.set(0);
   };
 
@@ -294,19 +304,14 @@ export default function SwipePage() {
     );
   }
 
-  // Daily limit reached
   if (limitReached) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center pb-28">
         <Clock className="w-16 h-16 text-rose-500 mb-4" />
         <h2 className="text-2xl font-bold">That’s your daily batch</h2>
         <p className="text-slate-400 mt-3 max-w-xs">
-          You get {DAILY_LIMIT} carefully chosen people per day. Come back
-          tomorrow for a fresh set.
-        </p>
-        <p className="text-slate-500 text-sm mt-6">
-          Tip: Check your <span className="text-rose-400">Likes</span> — someone
-          may already like you.
+          You get {DAILY_LIMIT} people per day. Come back tomorrow for a fresh
+          set.
         </p>
       </div>
     );
@@ -320,20 +325,22 @@ export default function SwipePage() {
         <Heart className="w-16 h-16 text-rose-500 mb-4" />
         <h2 className="text-2xl font-bold">No more profiles right now</h2>
         <p className="text-slate-400 mt-2 max-w-xs">
-          You’ve seen everyone available today. Check back later.
+          You’ve seen everyone available today.
         </p>
       </div>
     );
   }
 
+  const photos =
+    currentProfile.photo_urls && currentProfile.photo_urls.length > 0
+      ? currentProfile.photo_urls
+      : [];
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-28">
-      {/* Daily remaining counter */}
       <div className="w-full max-w-sm mb-4 flex justify-between items-center text-sm text-slate-400">
         <span>Today’s batch</span>
-        <span className="text-rose-400 font-medium">
-          {swipesLeft} left
-        </span>
+        <span className="text-rose-400 font-medium">{swipesLeft} left</span>
       </div>
 
       <div className="w-full max-w-sm relative">
@@ -344,40 +351,79 @@ export default function SwipePage() {
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             onDragEnd={(_, info) => {
-              if (info.offset.x > 100) {
-                handleSwipe("like");
-              } else if (info.offset.x < -100) {
-                handleSwipe("pass");
-              } else {
-                x.set(0);
-              }
+              if (info.offset.x > 100) handleSwipe("like");
+              else if (info.offset.x < -100) handleSwipe("pass");
+              else x.set(0);
             }}
             className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing"
           >
             <motion.div
               style={{ opacity: likeOpacity }}
-              className="absolute top-6 left-6 z-10 border-4 border-emerald-400 text-emerald-400 font-bold text-2xl px-4 py-1 rounded-lg rotate-[-20deg]"
+              className="absolute top-6 left-6 z-20 border-4 border-emerald-400 text-emerald-400 font-bold text-2xl px-4 py-1 rounded-lg rotate-[-20deg]"
             >
               LIKE
             </motion.div>
             <motion.div
               style={{ opacity: nopeOpacity }}
-              className="absolute top-6 right-6 z-10 border-4 border-rose-500 text-rose-500 font-bold text-2xl px-4 py-1 rounded-lg rotate-[20deg]"
+              className="absolute top-6 right-6 z-20 border-4 border-rose-500 text-rose-500 font-bold text-2xl px-4 py-1 rounded-lg rotate-[20deg]"
             >
               NOPE
             </motion.div>
 
-            {currentProfile.photo_urls?.[0] ? (
-              <img
-                src={currentProfile.photo_urls[0]}
-                alt={currentProfile.first_name}
-                className="w-full h-96 object-cover"
-              />
-            ) : (
-              <div className="w-full h-96 bg-slate-800 flex items-center justify-center">
-                <Heart className="w-12 h-12 text-slate-600" />
-              </div>
-            )}
+            {/* Photo area with carousel */}
+            <div className="relative w-full h-96 bg-slate-800">
+              {photos.length > 0 ? (
+                <img
+                  src={photos[photoIndex]}
+                  alt={currentProfile.first_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Heart className="w-12 h-12 text-slate-600" />
+                </div>
+              )}
+
+              {/* Photo dots */}
+              {photos.length > 1 && (
+                <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                  {photos.map((_, i) => (
+                    <div
+                      key={i}
+                      className={`h-1 rounded-full transition-all ${
+                        i === photoIndex
+                          ? "w-6 bg-white"
+                          : "w-4 bg-white/40"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Tap zones for next/prev photo */}
+              {photos.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhotoIndex((p) => Math.max(0, p - 1));
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhotoIndex((p) =>
+                        Math.min(photos.length - 1, p + 1)
+                      );
+                    }}
+                  />
+                </>
+              )}
+            </div>
 
             <div className="p-6">
               <div className="flex items-center gap-3 mb-3">
