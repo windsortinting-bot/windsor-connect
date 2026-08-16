@@ -85,7 +85,30 @@ export default function MatchesPage() {
   const handleUnmatch = async (matchId: string) => {
     if (!confirm("Are you sure you want to unmatch?")) return;
 
-    await supabase.from("matches").delete().eq("id", matchId);
+    const { error } = await supabase
+      .from("matches")
+      .delete()
+      .eq("id", matchId);
+
+    if (error) {
+      console.error("Unmatch error:", error);
+      alert("Could not unmatch. Please try again.");
+      return;
+    }
+
+    // Also remove any reverse match just in case
+    if (userId) {
+      const match = matches.find((m) => m.matchId === matchId);
+      if (match?.other?.id) {
+        await supabase
+          .from("matches")
+          .delete()
+          .or(
+            `and(user1_id.eq.${userId},user2_id.eq.${match.other.id}),and(user1_id.eq.${match.other.id},user2_id.eq.${userId})`
+          );
+      }
+    }
+
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
 
@@ -99,7 +122,14 @@ export default function MatchesPage() {
       blocked_id: otherId,
     });
 
-    await supabase.from("matches").delete().eq("id", matchId);
+    // Delete all matches between these two users
+    await supabase
+      .from("matches")
+      .delete()
+      .or(
+        `and(user1_id.eq.${userId},user2_id.eq.${otherId}),and(user1_id.eq.${otherId},user2_id.eq.${userId})`
+      );
+
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
 
