@@ -92,9 +92,9 @@ export default function SwipePage() {
       .order("created_at", { ascending: false })
       .limit(30);
 
-    if (myProfile?.target_gender && myProfile.target_gender !== "everyone") {
-      query = query.eq("gender", myProfile.target_gender);
-    }
+    // if (myProfile?.target_gender && myProfile.target_gender !== "everyone") {
+//   query = query.eq("gender", myProfile.target_gender);
+// }
 
     if (excludeIds.length > 0) {
       query = query.not("id", "in", `(${excludeIds.join(",")})`);
