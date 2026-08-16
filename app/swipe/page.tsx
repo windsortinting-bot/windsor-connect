@@ -8,7 +8,7 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, X, MapPin, Clock } from "lucide-react";
+import { Heart, X, MapPin, Clock, RotateCcw } from "lucide-react";
 import MatchModal from "../components/MatchModal";
 
 const DAILY_LIMIT = 8;
@@ -25,7 +25,23 @@ interface Profile {
   target_gender?: string | null;
   min_age_pref?: number | null;
   max_age_pref?: number | null;
-  is_paused?: boolean | null;
+  height?: string | null;
+  kids_status?: string | null;
+  kids_preference?: string | null;
+}
+
+function kidsStatusLabel(status?: string | null) {
+  if (status === "have_kids") return "Has kids";
+  if (status === "no_kids") return "No kids";
+  return null;
+}
+
+function kidsPrefLabel(pref?: string | null) {
+  if (pref === "want") return "Wants kids";
+  if (pref === "dont_want") return "Doesn't want kids";
+  if (pref === "already_have") return "Already has kids";
+  if (pref === "open") return "Open to kids";
+  return null;
 }
 
 export default function SwipePage() {
@@ -41,6 +57,8 @@ export default function SwipePage() {
   const [swipesLeft, setSwipesLeft] = useState(DAILY_LIMIT);
   const [limitReached, setLimitReached] = useState(false);
   const [iAmPaused, setIAmPaused] = useState(false);
+  const [lastPassed, setLastPassed] = useState<Profile | null>(null);
+  const [canSecondLook, setCanSecondLook] = useState(false);
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -197,6 +215,18 @@ export default function SwipePage() {
       action,
     });
 
+    if (action === "pass") {
+      setLastPassed(target);
+      setCanSecondLook(true);
+      await supabase
+        .from("profiles")
+        .update({ last_passed_id: target.id })
+        .eq("id", userId);
+    } else {
+      setCanSecondLook(false);
+      setLastPassed(null);
+    }
+
     await incrementDailySwipe();
 
     if (action === "like") {
@@ -246,6 +276,42 @@ export default function SwipePage() {
     x.set(0);
   };
 
+  const handleSecondLook = async () => {
+    if (!userId || !lastPassed || !canSecondLook) return;
+
+    await supabase
+      .from("swipes")
+      .delete()
+      .eq("swiper_id", userId)
+      .eq("target_id", lastPassed.id)
+      .eq("action", "pass");
+
+    setProfiles((prev) => {
+      const copy = [...prev];
+      copy.splice(currentIndex, 0, lastPassed);
+      return copy;
+    });
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("daily_swipes_used")
+      .eq("id", userId)
+      .single();
+
+    const used = Math.max(0, (data?.daily_swipes_used ?? 1) - 1);
+    await supabase
+      .from("profiles")
+      .update({ daily_swipes_used: used, last_passed_id: null })
+      .eq("id", userId);
+
+    setSwipesLeft((prev) => Math.min(DAILY_LIMIT, prev + 1));
+    setLimitReached(false);
+    setCanSecondLook(false);
+    setLastPassed(null);
+    setPhotoIndex(0);
+    x.set(0);
+  };
+
   const handleBlock = async () => {
     if (!userId || currentIndex >= profiles.length) return;
     const target = profiles[currentIndex];
@@ -260,6 +326,8 @@ export default function SwipePage() {
       target_id: target.id,
       action: "pass",
     });
+    setCanSecondLook(false);
+    setLastPassed(null);
     await incrementDailySwipe();
     setCurrentIndex((prev) => prev + 1);
     setPhotoIndex(0);
@@ -294,6 +362,8 @@ export default function SwipePage() {
       action: "pass",
     });
 
+    setCanSecondLook(false);
+    setLastPassed(null);
     await incrementDailySwipe();
     alert("Thanks for the report. We’ll review it.");
     setCurrentIndex((prev) => prev + 1);
@@ -337,6 +407,15 @@ export default function SwipePage() {
           You get {DAILY_LIMIT} people per day. Come back tomorrow for a fresh
           set.
         </p>
+        {canSecondLook && lastPassed && (
+          <button
+            onClick={handleSecondLook}
+            className="mt-6 flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-xl text-sm"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Second look at {lastPassed.first_name}
+          </button>
+        )}
       </div>
     );
   }
@@ -351,6 +430,15 @@ export default function SwipePage() {
         <p className="text-slate-400 mt-2 max-w-xs">
           You’ve seen everyone available today.
         </p>
+        {canSecondLook && lastPassed && (
+          <button
+            onClick={handleSecondLook}
+            className="mt-6 flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-xl text-sm"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Second look at {lastPassed.first_name}
+          </button>
+        )}
       </div>
     );
   }
@@ -359,6 +447,9 @@ export default function SwipePage() {
     currentProfile.photo_urls && currentProfile.photo_urls.length > 0
       ? currentProfile.photo_urls
       : [];
+
+  const statusLabel = kidsStatusLabel(currentProfile.kids_status);
+  const prefLabel = kidsPrefLabel(currentProfile.kids_preference);
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-28">
@@ -442,13 +533,31 @@ export default function SwipePage() {
             </div>
 
             <div className="p-6">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3 mb-2">
                 <h2 className="text-3xl font-bold text-white">
                   {currentProfile.first_name}
                 </h2>
                 {currentProfile.age && (
                   <span className="bg-slate-800 px-3 py-1 rounded-full text-sm text-slate-300">
                     {currentProfile.age}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-3 text-xs">
+                {currentProfile.height && (
+                  <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                    {currentProfile.height}
+                  </span>
+                )}
+                {statusLabel && (
+                  <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                    {statusLabel}
+                  </span>
+                )}
+                {prefLabel && (
+                  <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                    {prefLabel}
                   </span>
                 )}
               </div>
@@ -470,13 +579,24 @@ export default function SwipePage() {
         </AnimatePresence>
       </div>
 
-      <div className="flex justify-center gap-8 mt-8">
+      <div className="flex justify-center items-center gap-6 mt-8">
         <button
           onClick={() => handleSwipe("pass")}
           className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center hover:bg-slate-700 active:scale-95 transition-all"
         >
           <X className="w-8 h-8 text-slate-400" />
         </button>
+
+        {canSecondLook && (
+          <button
+            onClick={handleSecondLook}
+            title="Second Look"
+            className="w-12 h-12 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center hover:border-amber-500/50 hover:text-amber-400 text-slate-400 transition-all"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
+        )}
+
         <button
           onClick={() => handleSwipe("like")}
           className="w-16 h-16 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-rose-500/30"

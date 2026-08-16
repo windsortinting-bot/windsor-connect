@@ -28,6 +28,9 @@ export default function OnboardingPage() {
   const [bio, setBio] = useState("");
   const [minAgePref, setMinAgePref] = useState("21");
   const [maxAgePref, setMaxAgePref] = useState("45");
+  const [height, setHeight] = useState("");
+  const [kidsStatus, setKidsStatus] = useState("prefer_not");
+  const [kidsPreference, setKidsPreference] = useState("open");
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -59,6 +62,9 @@ export default function OnboardingPage() {
         setBio(profile.bio || "");
         setMinAgePref(profile.min_age_pref ? String(profile.min_age_pref) : "21");
         setMaxAgePref(profile.max_age_pref ? String(profile.max_age_pref) : "45");
+        setHeight(profile.height || "");
+        setKidsStatus(profile.kids_status || "prefer_not");
+        setKidsPreference(profile.kids_preference || "open");
         setPhotoUrls(profile.photo_urls || []);
       }
 
@@ -92,7 +98,7 @@ export default function OnboardingPage() {
 
     if (uploadError) {
       console.error(uploadError);
-      alert("Upload failed. Make sure the profile-photos bucket exists and is public.");
+      alert("Upload failed. Check the profile-photos bucket is public.");
       setUploading(false);
       return;
     }
@@ -145,6 +151,9 @@ export default function OnboardingPage() {
       photo_urls: photoUrls,
       min_age_pref: minA,
       max_age_pref: maxA,
+      height: height.trim() || null,
+      kids_status: kidsStatus,
+      kids_preference: kidsPreference,
       is_onboarded: true,
       updated_at: new Date().toISOString(),
     });
@@ -202,6 +211,48 @@ export default function OnboardingPage() {
               required
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 mb-1 block">Height</label>
+            <input
+              type="text"
+              value={height}
+              onChange={(e) => setHeight(e.target.value)}
+              placeholder={`e.g. 5'10" or 178 cm`}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 mb-1 block">
+              Do you have kids?
+            </label>
+            <select
+              value={kidsStatus}
+              onChange={(e) => setKidsStatus(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
+            >
+              <option value="no_kids">Don't have kids</option>
+              <option value="have_kids">Have kids</option>
+              <option value="prefer_not">Prefer not to say</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 mb-1 block">
+              Open to kids?
+            </label>
+            <select
+              value={kidsPreference}
+              onChange={(e) => setKidsPreference(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
+            >
+              <option value="want">Want kids</option>
+              <option value="dont_want">Don't want kids</option>
+              <option value="already_have">Already have kids</option>
+              <option value="open">Open to kids</option>
+            </select>
           </div>
 
           <div>
@@ -287,14 +338,16 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* Photos */}
           <div>
             <label className="text-sm text-slate-400 mb-2 block">
               Photos (up to 3)
             </label>
             <div className="flex gap-3 flex-wrap">
               {photoUrls.map((url, i) => (
-                <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden bg-slate-800">
+                <div
+                  key={i}
+                  className="relative w-24 h-24 rounded-xl overflow-hidden bg-slate-800"
+                >
                   <img src={url} alt="" className="w-full h-full object-cover" />
                   <button
                     type="button"

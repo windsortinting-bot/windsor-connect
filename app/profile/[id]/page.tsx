@@ -5,6 +5,20 @@ import { useRouter, useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import { Heart, MapPin, ArrowLeft } from "lucide-react";
 
+function kidsStatusLabel(status?: string | null) {
+  if (status === "have_kids") return "Has kids";
+  if (status === "no_kids") return "No kids";
+  return null;
+}
+
+function kidsPrefLabel(pref?: string | null) {
+  if (pref === "want") return "Wants kids";
+  if (pref === "dont_want") return "Doesn't want kids";
+  if (pref === "already_have") return "Already has kids";
+  if (pref === "open") return "Open to kids";
+  return null;
+}
+
 export default function ViewProfilePage() {
   const router = useRouter();
   const params = useParams();
@@ -55,6 +69,9 @@ export default function ViewProfilePage() {
     profile.photo_urls && profile.photo_urls.length > 0
       ? profile.photo_urls
       : [];
+
+  const statusLabel = kidsStatusLabel(profile.kids_status);
+  const prefLabel = kidsPrefLabel(profile.kids_preference);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
@@ -118,6 +135,24 @@ export default function ViewProfilePage() {
             <div className="flex items-center gap-1 text-rose-400 text-sm mt-1">
               <MapPin className="w-4 h-4" />
               {profile.neighborhood || profile.city || "Windsor"}
+            </div>
+
+            <div className="flex flex-wrap gap-2 mt-3 text-xs">
+              {profile.height && (
+                <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                  {profile.height}
+                </span>
+              )}
+              {statusLabel && (
+                <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                  {statusLabel}
+                </span>
+              )}
+              {prefLabel && (
+                <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                  {prefLabel}
+                </span>
+              )}
             </div>
 
             {profile.gender && (

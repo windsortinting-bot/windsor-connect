@@ -10,7 +10,22 @@ import {
   Heart,
   Shield,
   AlertTriangle,
+  Settings,
 } from "lucide-react";
+
+function kidsStatusLabel(status?: string | null) {
+  if (status === "have_kids") return "Has kids";
+  if (status === "no_kids") return "No kids";
+  return "Kids: prefer not to say";
+}
+
+function kidsPrefLabel(pref?: string | null) {
+  if (pref === "want") return "Wants kids";
+  if (pref === "dont_want") return "Doesn't want kids";
+  if (pref === "already_have") return "Already has kids";
+  if (pref === "open") return "Open to kids";
+  return null;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -102,6 +117,8 @@ export default function ProfilePage() {
       ? profile.photo_urls
       : [];
 
+  const pref = kidsPrefLabel(profile.kids_preference);
+
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-10 pb-28">
       <div className="max-w-md mx-auto">
@@ -169,6 +186,22 @@ export default function ProfilePage() {
               {profile.neighborhood || profile.city || "Windsor"}
             </div>
 
+            <div className="flex flex-wrap gap-2 mt-3 text-xs">
+              {profile.height && (
+                <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                  {profile.height}
+                </span>
+              )}
+              <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                {kidsStatusLabel(profile.kids_status)}
+              </span>
+              {pref && (
+                <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+                  {pref}
+                </span>
+              )}
+            </div>
+
             {profile.gender && (
               <p className="text-slate-400 text-sm mt-3 capitalize">
                 {profile.gender}
@@ -196,6 +229,14 @@ export default function ProfilePage() {
         >
           <Edit className="w-4 h-4" />
           Edit Profile
+        </button>
+
+        <button
+          onClick={() => router.push("/settings")}
+          className="w-full mt-3 flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 py-3.5 rounded-xl transition-all text-sm"
+        >
+          <Settings className="w-4 h-4" />
+          Settings
         </button>
 
         <button
