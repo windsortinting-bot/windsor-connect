@@ -131,42 +131,57 @@ export default function MatchesPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {matches.map((item) => (
               <div key={item.matchId}>
-                {/* Whole card is the chat button */}
-                <button
-                  onClick={() => router.push(`/chat/${item.matchId}`)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-4 text-left hover:bg-slate-800/80 transition-colors"
-                >
-                  <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800 flex-shrink-0">
-                    {item.other.photo_urls?.[0] ? (
-                      <img
-                        src={item.other.photo_urls[0]}
-                        alt={item.other.first_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Heart className="w-6 h-6 text-slate-600" />
+                {/* Main card */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                  <div className="flex items-center gap-4">
+                    {/* Left side: photo + View Profile */}
+                    <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                      <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800">
+                        {item.other.photo_urls?.[0] ? (
+                          <img
+                            src={item.other.photo_urls[0]}
+                            alt={item.other.first_name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Heart className="w-6 h-6 text-slate-600" />
+                          </div>
+                        )}
                       </div>
-                    )}
+                      <button
+                        onClick={() =>
+                          router.push(`/profile/${item.other.id}`)
+                        }
+                        className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors"
+                      >
+                        View Profile
+                      </button>
+                    </div>
+
+                    {/* Right side: click here to chat */}
+                    <button
+                      onClick={() => router.push(`/chat/${item.matchId}`)}
+                      className="flex-1 flex items-center justify-between gap-3 bg-slate-800/60 hover:bg-slate-800 rounded-xl px-4 py-3 transition-colors text-left"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white truncate">
+                          {item.other.first_name}
+                          {item.other.age ? `, ${item.other.age}` : ""}
+                        </p>
+                        <p className="text-sm text-rose-400 mt-0.5">
+                          Click here to chat
+                        </p>
+                      </div>
+                      <MessageCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+                    </button>
                   </div>
+                </div>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white truncate">
-                      {item.other.first_name}
-                      {item.other.age ? `, ${item.other.age}` : ""}
-                    </p>
-                    <p className="text-sm text-slate-400 truncate">
-                      {item.other.neighborhood || "Windsor"}
-                    </p>
-                  </div>
-
-                  <MessageCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
-                </button>
-
-                {/* Unmatch & Block sit outside the chat area */}
+                {/* Unmatch & Block under the card */}
                 <div className="flex justify-end gap-4 mt-1.5 px-1">
                   <button
                     onClick={() => handleUnmatch(item.matchId)}
