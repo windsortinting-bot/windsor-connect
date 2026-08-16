@@ -337,20 +337,20 @@ export default function SwipePage() {
       </div>
 
       {/* Block & Report */}
-      <div className="flex justify-center gap-8 mt-5 text-sm">
-        <button
-          onClick={handleBlock}
-          className="text-slate-500 hover:text-rose-400 transition-colors"
-        >
-          Block
-        </button>
-        <button
-          onClick={handleReport}
-          className="text-slate-500 hover:text-rose-400 transition-colors"
-        >
-          Report
-        </button>
-      </div>
+<div className="flex justify-center gap-4 mt-10 mb-4">
+  <button
+    onClick={handleBlock}
+    className="px-5 py-2.5 rounded-full border border-slate-700 bg-slate-900 text-slate-400 text-sm hover:border-rose-500/50 hover:text-rose-400 transition-all"
+  >
+    Block
+  </button>
+  <button
+    onClick={handleReport}
+    className="px-5 py-2.5 rounded-full border border-slate-700 bg-slate-900 text-slate-400 text-sm hover:border-rose-500/50 hover:text-rose-400 transition-all"
+  >
+    Report
+  </button>
+</div>
 
       {/* Match popup */}
       {matchedUser && (
