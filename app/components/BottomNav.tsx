@@ -8,10 +8,11 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   const links = [
-    { href: "/swipe", icon: Heart, label: "Swipe" },
-    { href: "/matches", icon: Users, label: "Matches" },
-    { href: "/profile", icon: User, label: "Profile" },
-  ];
+  { href: "/swipe", icon: Heart, label: "Swipe" },
+  { href: "/likes", icon: Heart, label: "Likes" },
+  { href: "/matches", icon: Users, label: "Matches" },
+  { href: "/profile", icon: User, label: "Profile" },
+];
 
   // Hide navigation on these pages
   if (

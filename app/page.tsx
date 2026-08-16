@@ -51,27 +51,26 @@ export default function WindsorConnectLanding() {
         </button>
       </header>
 
-      {/* Main Content */}
+      {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-16 pb-12 max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-6">
           <Sparkles className="w-3.5 h-3.5" />
-          Exclusively for the 519
+          Built for the 519
         </div>
 
         <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight">
-          Real connections across <br className="hidden sm:inline" />
+          Meet people who actually{" "}
           <span className="bg-gradient-to-r from-rose-500 via-pink-500 to-rose-400 bg-clip-text text-transparent">
-            Walkerville, Riverside & Beyond.
+            live in Windsor
           </span>
         </h1>
 
         <p className="mt-6 text-slate-400 text-lg sm:text-xl max-w-2xl leading-relaxed">
-          The first city-focused dating app built specifically for Windsor
-          singles. Skip scattered matches and connect with locals in your
-          neighborhood.
+          City-first dating for Walkerville, Riverside, Downtown, Ford City and
+          beyond. Real locals. Real connections.
         </p>
 
-        {/* Waitlist Form */}
+        {/* Waitlist */}
         <form
           onSubmit={handleSubmit}
           className="mt-8 w-full max-w-md flex flex-col sm:flex-row gap-2"
@@ -89,7 +88,7 @@ export default function WindsorConnectLanding() {
             disabled={status === "loading"}
             className="bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-lg shadow-rose-500/25 whitespace-nowrap text-sm disabled:opacity-60"
           >
-            {status === "loading" ? "Joining..." : "Join Windsor List"}
+            {status === "loading" ? "Joining..." : "Join the List"}
           </button>
         </form>
 
@@ -103,9 +102,9 @@ export default function WindsorConnectLanding() {
           </p>
         )}
 
-        {/* Neighborhood Tags */}
+        {/* Neighborhoods */}
         <div className="mt-12 flex flex-wrap justify-center items-center gap-2 text-xs text-slate-400">
-          <span className="text-slate-500">Popular hubs:</span>
+          <span className="text-slate-500">Neighborhoods:</span>
           {[
             "Walkerville",
             "Ford City",
@@ -124,15 +123,14 @@ export default function WindsorConnectLanding() {
           ))}
         </div>
 
-        {/* First Date Perks */}
+        {/* Local perks */}
         <div className="mt-20 w-full text-left">
           <div className="border-t border-slate-800/80 pt-12 mb-8 text-center sm:text-left">
             <h2 className="text-2xl font-bold text-white">
               First Date Perks in Windsor
             </h2>
             <p className="text-slate-400 text-sm mt-1">
-              Match on Windsor Connect and enjoy exclusive local perks on your
-              first meetup.
+              Match on Windsor Connect and enjoy exclusive local offers.
             </p>
           </div>
 
@@ -142,11 +140,9 @@ export default function WindsorConnectLanding() {
                 <Coffee className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-white">Anchor Coffee House</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">
-                Walkerville
-              </p>
+              <p className="text-xs text-rose-400 font-medium mt-0.5">Walkerville</p>
               <p className="text-xs text-slate-400 mt-2">
-                2-for-1 drip coffees or 15% off your first coffee date order.
+                2-for-1 drip coffees on your first coffee date.
               </p>
             </div>
 
@@ -155,12 +151,9 @@ export default function WindsorConnectLanding() {
                 <Beer className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-white">Craft Heads Brewing</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">
-                Downtown
-              </p>
+              <p className="text-xs text-rose-400 font-medium mt-0.5">Downtown</p>
               <p className="text-xs text-slate-400 mt-2">
-                Free pretzel appetizer when you both order a pint on your match
-                date.
+                Free pretzel when you both order a pint.
               </p>
             </div>
 
@@ -169,21 +162,17 @@ export default function WindsorConnectLanding() {
                 <Utensils className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-white">Vito’s Pizzeria</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">
-                Via Italia
-              </p>
+              <p className="text-xs text-rose-400 font-medium mt-0.5">Via Italia</p>
               <p className="text-xs text-slate-400 mt-2">
-                Complimentary dessert to share at the end of your first dinner
-                date.
+                Complimentary dessert on your first dinner date.
               </p>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
-        © {new Date().getFullYear()} Windsor Connect. Built for Windsor, ON.
+        © {new Date().getFullYear()} Windsor Connect · Built for Windsor, ON
       </footer>
     </div>
   );
