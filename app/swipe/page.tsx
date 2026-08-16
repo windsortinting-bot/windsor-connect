@@ -64,7 +64,6 @@ export default function SwipePage() {
   const fetchProfiles = async (currentUserId: string) => {
     setLoading(true);
 
-    // People you already swiped on
     const { data: swiped } = await supabase
       .from("swipes")
       .select("target_id")
@@ -72,7 +71,6 @@ export default function SwipePage() {
 
     const swipedIds = (swiped ?? []).map((s) => s.target_id);
 
-    // People you blocked or who blocked you
     const { data: blocked } = await supabase
       .from("blocks")
       .select("blocker_id, blocked_id")
@@ -82,12 +80,10 @@ export default function SwipePage() {
       b.blocker_id === currentUserId ? b.blocked_id : b.blocker_id
     );
 
-    // Combine everyone to exclude
     const excludeIds = [
       ...new Set([...swipedIds, ...blockedIds, currentUserId]),
     ];
 
-    // Your preferences
     const { data: myProfile } = await supabase
       .from("profiles")
       .select("target_gender, gender")
@@ -105,7 +101,6 @@ export default function SwipePage() {
       query = query.not("id", "in", `(${excludeIds.join(",")})`);
     }
 
-    // Gender filter
     if (myProfile?.target_gender && myProfile.target_gender !== "everyone") {
       query = query.eq("gender", myProfile.target_gender);
     }
@@ -127,7 +122,6 @@ export default function SwipePage() {
 
     const target = profiles[currentIndex];
 
-    // Save the swipe
     await supabase.from("swipes").insert({
       swiper_id: userId,
       target_id: target.id,
@@ -135,7 +129,6 @@ export default function SwipePage() {
     });
 
     if (action === "like") {
-      // Check if they already liked you
       const { data: mutual } = await supabase
         .from("swipes")
         .select("id")
@@ -145,7 +138,6 @@ export default function SwipePage() {
         .maybeSingle();
 
       if (mutual) {
-        // Create match
         const { data: newMatch } = await supabase
           .from("matches")
           .insert({
@@ -158,7 +150,6 @@ export default function SwipePage() {
         let finalMatchId = newMatch?.id || "";
 
         if (!newMatch) {
-          // Match might already exist
           const { data: existing } = await supabase
             .from("matches")
             .select("id")
@@ -191,7 +182,6 @@ export default function SwipePage() {
       blocked_id: target.id,
     });
 
-    // Also record a pass so they don't come back
     await supabase.from("swipes").insert({
       swiper_id: userId,
       target_id: target.id,
@@ -227,7 +217,6 @@ export default function SwipePage() {
       reason: finalReason,
     });
 
-    // Also pass them so they disappear
     await supabase.from("swipes").insert({
       swiper_id: userId,
       target_id: target.id,
@@ -287,7 +276,6 @@ export default function SwipePage() {
             }}
             className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing"
           >
-            {/* Like / Nope overlays */}
             <motion.div
               style={{ opacity: likeOpacity }}
               className="absolute top-6 left-6 z-10 border-4 border-emerald-400 text-emerald-400 font-bold text-2xl px-4 py-1 rounded-lg rotate-[-20deg]"
@@ -342,7 +330,6 @@ export default function SwipePage() {
         </AnimatePresence>
       </div>
 
-      {/* Like / Pass buttons */}
       <div className="flex justify-center gap-8 mt-8">
         <button
           onClick={() => handleSwipe("pass")}
@@ -358,7 +345,6 @@ export default function SwipePage() {
         </button>
       </div>
 
-      {/* Block & Report */}
       <div className="flex justify-center gap-4 mt-8">
         <button
           onClick={handleBlock}
@@ -374,7 +360,6 @@ export default function SwipePage() {
         </button>
       </div>
 
-      {/* Match popup */}
       {matchedUser && (
         <MatchModal
           isOpen={showMatch}
