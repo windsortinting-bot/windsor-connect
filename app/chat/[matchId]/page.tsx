@@ -15,6 +15,22 @@ interface Message {
 
 const MAX_UNANSWERED = 3;
 
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function formatDay(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const params = useParams();
@@ -25,7 +41,6 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("Chat");
-  const [otherId, setOtherId] = useState<string | null>(null);
   const [canSend, setCanSend] = useState(true);
   const [limitMessage, setLimitMessage] = useState("");
   const [matchExpired, setMatchExpired] = useState(false);
@@ -44,10 +59,9 @@ export default function ChatPage() {
 
       setUserId(user.id);
 
-      // Load match + other person
       const { data: match } = await supabase
         .from("matches")
-        .select("id, user1_id, user2_id, expires_at, last_message_at")
+        .select("id, user1_id, user2_id, expires_at")
         .eq("id", matchId)
         .single();
 
@@ -56,9 +70,7 @@ export default function ChatPage() {
         return;
       }
 
-      // Check expiry (no messages within window)
       if (match.expires_at && new Date(match.expires_at) < new Date()) {
-        // Only expire if there were never any messages
         const { count } = await supabase
           .from("messages")
           .select("*", { count: "exact", head: true })
@@ -73,7 +85,6 @@ export default function ChatPage() {
 
       const oid =
         match.user1_id === user.id ? match.user2_id : match.user1_id;
-      setOtherId(oid);
 
       const { data: otherProfile } = await supabase
         .from("profiles")
@@ -83,7 +94,6 @@ export default function ChatPage() {
 
       setOtherName(otherProfile?.first_name || "Chat");
 
-      // Load messages
       const { data: msgs } = await supabase
         .from("messages")
         .select("*")
@@ -98,7 +108,6 @@ export default function ChatPage() {
     init();
   }, [matchId, router]);
 
-  // Realtime subscription
   useEffect(() => {
     if (!matchId) return;
 
@@ -140,20 +149,16 @@ export default function ChatPage() {
       return;
     }
 
-    // Count consecutive messages from current user at the end
     let unanswered = 0;
     for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].sender_id === currentUserId) {
-        unanswered++;
-      } else {
-        break;
-      }
+      if (msgs[i].sender_id === currentUserId) unanswered++;
+      else break;
     }
 
     if (unanswered >= MAX_UNANSWERED) {
       setCanSend(false);
       setLimitMessage(
-        `You’ve sent ${MAX_UNANSWERED} messages in a row. Wait for a reply before sending more.`
+        `You’ve sent ${MAX_UNANSWERED} messages in a row. Wait for a reply.`
       );
     } else {
       setCanSend(true);
@@ -184,7 +189,6 @@ export default function ChatPage() {
       return;
     }
 
-    // Update match activity + clear expiry once conversation starts
     await supabase
       .from("matches")
       .update({
@@ -216,8 +220,7 @@ export default function ChatPage() {
         <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
         <h2 className="text-xl font-bold">This match expired</h2>
         <p className="text-slate-400 mt-2 max-w-xs">
-          Neither of you started a conversation in time. Dead-end chats are
-          automatically closed.
+          Neither of you started a conversation in time.
         </p>
         <button
           onClick={() => router.push("/matches")}
@@ -229,9 +232,10 @@ export default function ChatPage() {
     );
   }
 
+  let lastDay = "";
+
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-      {/* Header */}
       <div className="border-b border-slate-800 px-4 py-3 flex items-center gap-3 sticky top-0 bg-slate-950/95 backdrop-blur z-10">
         <button
           onClick={() => router.push("/matches")}
@@ -242,38 +246,53 @@ export default function ChatPage() {
         <h1 className="font-semibold text-lg">{otherName}</h1>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
         {messages.length === 0 && (
           <p className="text-center text-slate-500 text-sm mt-10">
-            Say hello — you have {MAX_UNANSWERED} messages before they need to
-            reply.
+            Say hello — you can send up to {MAX_UNANSWERED} messages before they
+            need to reply.
           </p>
         )}
 
         {messages.map((msg) => {
           const isMe = msg.sender_id === userId;
+          const day = formatDay(msg.created_at);
+          const showDay = day !== lastDay;
+          lastDay = day;
+
           return (
-            <div
-              key={msg.id}
-              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-            >
+            <React.Fragment key={msg.id}>
+              {showDay && (
+                <div className="text-center text-xs text-slate-500 py-3">
+                  {day}
+                </div>
+              )}
               <div
-                className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
-                  isMe
-                    ? "bg-rose-500 text-white rounded-br-md"
-                    : "bg-slate-800 text-slate-100 rounded-bl-md"
-                }`}
+                className={`flex ${isMe ? "justify-end" : "justify-start"} mb-1`}
               >
-                {msg.content}
+                <div
+                  className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
+                    isMe
+                      ? "bg-rose-500 text-white rounded-br-md"
+                      : "bg-slate-800 text-slate-100 rounded-bl-md"
+                  }`}
+                >
+                  <p>{msg.content}</p>
+                  <p
+                    className={`text-[10px] mt-1 ${
+                      isMe ? "text-rose-100/70" : "text-slate-500"
+                    }`}
+                  >
+                    {formatTime(msg.created_at)}
+                  </p>
+                </div>
               </div>
-            </div>
+            </React.Fragment>
           );
         })}
         <div ref={bottomRef} />
       </div>
 
-      {/* Limit warning */}
       {!canSend && (
         <div className="px-4 py-2 bg-slate-900 border-t border-slate-800 text-center text-sm text-amber-400 flex items-center justify-center gap-2">
           <AlertCircle className="w-4 h-4" />
@@ -281,7 +300,6 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Input */}
       <form
         onSubmit={sendMessage}
         className="border-t border-slate-800 p-3 flex gap-2 bg-slate-950"
@@ -290,9 +308,7 @@ export default function ChatPage() {
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={
-            canSend ? "Type a message..." : "Waiting for a reply..."
-          }
+          placeholder={canSend ? "Type a message..." : "Waiting for a reply..."}
           disabled={!canSend}
           className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-rose-500 disabled:opacity-50"
         />

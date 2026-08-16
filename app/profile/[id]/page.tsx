@@ -12,6 +12,7 @@ export default function ViewProfilePage() {
 
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [photoIndex, setPhotoIndex] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -50,6 +51,11 @@ export default function ViewProfilePage() {
     );
   }
 
+  const photos =
+    profile.photo_urls && profile.photo_urls.length > 0
+      ? profile.photo_urls
+      : [];
+
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
@@ -62,17 +68,46 @@ export default function ViewProfilePage() {
         </button>
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-          {profile.photo_urls?.[0] ? (
-            <img
-              src={profile.photo_urls[0]}
-              alt={profile.first_name}
-              className="w-full h-80 object-cover"
-            />
-          ) : (
-            <div className="w-full h-80 bg-slate-800 flex items-center justify-center">
-              <Heart className="w-16 h-16 text-slate-600" />
-            </div>
-          )}
+          <div className="relative w-full h-80 bg-slate-800">
+            {photos.length > 0 ? (
+              <img
+                src={photos[photoIndex]}
+                alt={profile.first_name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Heart className="w-16 h-16 text-slate-600" />
+              </div>
+            )}
+
+            {photos.length > 1 && (
+              <>
+                <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                  {photos.map((_: string, i: number) => (
+                    <div
+                      key={i}
+                      className={`h-1 rounded-full transition-all ${
+                        i === photoIndex ? "w-6 bg-white" : "w-4 bg-white/40"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
+                  onClick={() => setPhotoIndex((p) => Math.max(0, p - 1))}
+                />
+                <button
+                  type="button"
+                  className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
+                  onClick={() =>
+                    setPhotoIndex((p) => Math.min(photos.length - 1, p + 1))
+                  }
+                />
+              </>
+            )}
+          </div>
 
           <div className="p-6">
             <h1 className="text-2xl font-bold">
@@ -92,9 +127,7 @@ export default function ViewProfilePage() {
             )}
 
             {profile.bio && (
-              <p className="text-slate-300 mt-4 leading-relaxed">
-                {profile.bio}
-              </p>
+              <p className="text-slate-300 mt-4 leading-relaxed">{profile.bio}</p>
             )}
           </div>
         </div>

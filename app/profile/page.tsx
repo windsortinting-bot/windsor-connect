@@ -3,12 +3,20 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { LogOut, Edit, MapPin, Heart } from "lucide-react";
+import {
+  LogOut,
+  Edit,
+  MapPin,
+  Heart,
+  Shield,
+  AlertTriangle,
+} from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [photoIndex, setPhotoIndex] = useState(0);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -49,7 +57,6 @@ export default function ProfilePage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Delete related data
     await supabase
       .from("swipes")
       .delete()
@@ -64,7 +71,6 @@ export default function ProfilePage() {
       .or(`blocker_id.eq.${user.id},blocked_id.eq.${user.id}`);
     await supabase.from("profiles").delete().eq("id", user.id);
 
-    // Sign out
     await supabase.auth.signOut();
     router.push("/");
   };
@@ -77,10 +83,28 @@ export default function ProfilePage() {
     );
   }
 
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4">
+        <p>Profile not found</p>
+        <button
+          onClick={() => router.push("/onboarding")}
+          className="mt-4 text-rose-400"
+        >
+          Complete profile
+        </button>
+      </div>
+    );
+  }
+
+  const photos =
+    profile.photo_urls && profile.photo_urls.length > 0
+      ? profile.photo_urls
+      : [];
+
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-10 pb-28">
       <div className="max-w-md mx-auto">
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">My Profile</h1>
           <button
@@ -92,32 +116,60 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Profile card */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-          {profile?.photo_urls?.[0] ? (
-            <img
-              src={profile.photo_urls[0]}
-              alt={profile.first_name}
-              className="w-full h-80 object-cover"
-            />
-          ) : (
-            <div className="w-full h-80 bg-slate-800 flex items-center justify-center">
-              <Heart className="w-16 h-16 text-slate-600" />
-            </div>
-          )}
+          <div className="relative w-full h-80 bg-slate-800">
+            {photos.length > 0 ? (
+              <img
+                src={photos[photoIndex]}
+                alt={profile.first_name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Heart className="w-16 h-16 text-slate-600" />
+              </div>
+            )}
+
+            {photos.length > 1 && (
+              <>
+                <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                  {photos.map((_: string, i: number) => (
+                    <div
+                      key={i}
+                      className={`h-1 rounded-full transition-all ${
+                        i === photoIndex ? "w-6 bg-white" : "w-4 bg-white/40"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
+                  onClick={() => setPhotoIndex((p) => Math.max(0, p - 1))}
+                />
+                <button
+                  type="button"
+                  className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
+                  onClick={() =>
+                    setPhotoIndex((p) => Math.min(photos.length - 1, p + 1))
+                  }
+                />
+              </>
+            )}
+          </div>
 
           <div className="p-6">
             <h2 className="text-2xl font-bold">
-              {profile?.first_name}
-              {profile?.age ? `, ${profile.age}` : ""}
+              {profile.first_name}
+              {profile.age ? `, ${profile.age}` : ""}
             </h2>
 
             <div className="flex items-center gap-1 text-rose-400 text-sm mt-1">
               <MapPin className="w-4 h-4" />
-              {profile?.neighborhood || profile?.city || "Windsor"}
+              {profile.neighborhood || profile.city || "Windsor"}
             </div>
 
-            {profile?.gender && (
+            {profile.gender && (
               <p className="text-slate-400 text-sm mt-3 capitalize">
                 {profile.gender}
                 {profile.target_gender
@@ -126,15 +178,18 @@ export default function ProfilePage() {
               </p>
             )}
 
-            {profile?.bio && (
-              <p className="text-slate-300 mt-4 leading-relaxed">
-                {profile.bio}
+            {(profile.min_age_pref || profile.max_age_pref) && (
+              <p className="text-slate-500 text-sm mt-1">
+                Ages {profile.min_age_pref ?? 18}–{profile.max_age_pref ?? 99}
               </p>
+            )}
+
+            {profile.bio && (
+              <p className="text-slate-300 mt-4 leading-relaxed">{profile.bio}</p>
             )}
           </div>
         </div>
 
-        {/* Edit button */}
         <button
           onClick={() => router.push("/onboarding")}
           className="w-full mt-6 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white py-3.5 rounded-xl transition-all"
@@ -143,7 +198,24 @@ export default function ProfilePage() {
           Edit Profile
         </button>
 
-        {/* Delete Account */}
+        <button
+          onClick={() => router.push("/safety")}
+          className="w-full mt-3 flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 py-3.5 rounded-xl transition-all text-sm"
+        >
+          <Shield className="w-4 h-4" />
+          Safety Tips
+        </button>
+
+        {profile.is_admin && (
+          <button
+            onClick={() => router.push("/admin/reports")}
+            className="w-full mt-3 flex items-center justify-center gap-2 bg-slate-900 border border-rose-900/50 hover:bg-slate-800 text-rose-400 py-3.5 rounded-xl transition-all text-sm"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            Admin · Reports
+          </button>
+        )}
+
         <button
           onClick={handleDeleteAccount}
           className="w-full mt-3 text-sm text-slate-500 hover:text-rose-500 py-2"
