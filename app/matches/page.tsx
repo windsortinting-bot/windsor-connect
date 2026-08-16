@@ -42,14 +42,12 @@ export default function MatchesPage() {
         return;
       }
 
-      // Remove duplicates
       const seen = new Set<string>();
       const uniqueMatches: any[] = [];
 
       for (const match of matchRows) {
         const otherId =
           match.user1_id === user.id ? match.user2_id : match.user1_id;
-
         if (!seen.has(otherId)) {
           seen.add(otherId);
           uniqueMatches.push(match);
@@ -65,7 +63,6 @@ export default function MatchesPage() {
         .select("*")
         .in("id", otherIds);
 
-      // Get last message for each match
       const formatted = await Promise.all(
         uniqueMatches.map(async (match) => {
           const otherId =
@@ -80,11 +77,15 @@ export default function MatchesPage() {
             .limit(1)
             .maybeSingle();
 
+          // Unread = last message is from them (simple heuristic)
+          const unread =
+            lastMsg && lastMsg.sender_id !== user.id ? true : false;
+
           return {
             matchId: match.id,
             other,
             lastMessage: lastMsg?.content || null,
-            lastMessageTime: lastMsg?.created_at || null,
+            unread,
           };
         })
       );
@@ -99,10 +100,7 @@ export default function MatchesPage() {
   const handleUnmatch = async (matchId: string) => {
     if (!confirm("Are you sure you want to unmatch?")) return;
 
-    const { error } = await supabase
-      .from("matches")
-      .delete()
-      .eq("id", matchId);
+    const { error } = await supabase.from("matches").delete().eq("id", matchId);
 
     if (error) {
       console.error("Unmatch error:", error);
@@ -178,9 +176,8 @@ export default function MatchesPage() {
               <div key={item.matchId}>
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
                   <div className="flex items-center gap-4">
-                    {/* Left: photo + View Profile */}
                     <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-                      <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800">
+                      <div className="relative w-16 h-16 rounded-full overflow-hidden bg-slate-800">
                         {item.other.photo_urls?.[0] ? (
                           <img
                             src={item.other.photo_urls[0]}
@@ -191,6 +188,9 @@ export default function MatchesPage() {
                           <div className="w-full h-full flex items-center justify-center">
                             <Heart className="w-6 h-6 text-slate-600" />
                           </div>
+                        )}
+                        {item.unread && (
+                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-rose-500 rounded-full border-2 border-slate-900" />
                         )}
                       </div>
                       <button
@@ -203,17 +203,27 @@ export default function MatchesPage() {
                       </button>
                     </div>
 
-                    {/* Right: chat area with last message */}
                     <button
                       onClick={() => router.push(`/chat/${item.matchId}`)}
                       className="flex-1 flex items-center justify-between gap-3 bg-slate-800/60 hover:bg-slate-800 rounded-xl px-4 py-3 transition-colors text-left"
                     >
                       <div className="min-w-0">
-                        <p className="font-semibold text-white truncate">
+                        <p className="font-semibold text-white truncate flex items-center gap-2">
                           {item.other.first_name}
                           {item.other.age ? `, ${item.other.age}` : ""}
+                          {item.unread && (
+                            <span className="text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full">
+                              New
+                            </span>
+                          )}
                         </p>
-                        <p className="text-sm text-slate-400 mt-0.5 truncate">
+                        <p
+                          className={`text-sm mt-0.5 truncate ${
+                            item.unread
+                              ? "text-white font-medium"
+                              : "text-slate-400"
+                          }`}
+                        >
                           {item.lastMessage
                             ? item.lastMessage
                             : "Click here to chat"}

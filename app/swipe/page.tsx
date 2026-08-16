@@ -8,7 +8,7 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, X, MapPin, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, X, MapPin, Clock } from "lucide-react";
 import MatchModal from "../components/MatchModal";
 
 const DAILY_LIMIT = 8;
@@ -25,6 +25,7 @@ interface Profile {
   target_gender?: string | null;
   min_age_pref?: number | null;
   max_age_pref?: number | null;
+  is_paused?: boolean | null;
 }
 
 export default function SwipePage() {
@@ -34,12 +35,12 @@ export default function SwipePage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string | null>(null);
-  const [myAge, setMyAge] = useState<number | null>(null);
   const [showMatch, setShowMatch] = useState(false);
   const [matchedUser, setMatchedUser] = useState<Profile | null>(null);
   const [matchId, setMatchId] = useState("");
   const [swipesLeft, setSwipesLeft] = useState(DAILY_LIMIT);
   const [limitReached, setLimitReached] = useState(false);
+  const [iAmPaused, setIAmPaused] = useState(false);
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -62,17 +63,22 @@ export default function SwipePage() {
         const { data: myProfile } = await supabase
           .from("profiles")
           .select(
-            "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender"
+            "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender, is_paused"
           )
           .eq("id", user.id)
           .single();
 
         setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
-        setMyAge(myProfile?.age ?? null);
+        setIAmPaused(myProfile?.is_paused ?? false);
 
         const used = myProfile?.daily_swipes_used ?? 0;
         const left = Math.max(0, DAILY_LIMIT - used);
         setSwipesLeft(left);
+
+        if (myProfile?.is_paused) {
+          setLoading(false);
+          return;
+        }
 
         if (left <= 0) {
           setLimitReached(true);
@@ -118,6 +124,7 @@ export default function SwipePage() {
       .from("profiles")
       .select("*")
       .eq("is_onboarded", true)
+      .or("is_paused.is.null,is_paused.eq.false")
       .order("created_at", { ascending: false })
       .limit(40);
 
@@ -129,7 +136,6 @@ export default function SwipePage() {
       query = query.eq("gender", myProfile.target_gender);
     }
 
-    // Age range I want to see
     if (myProfile?.min_age_pref) {
       query = query.gte("age", myProfile.min_age_pref);
     }
@@ -143,7 +149,6 @@ export default function SwipePage() {
       console.error("Fetch profiles error:", error);
       setProfiles([]);
     } else {
-      // Mutual age filter: their preferred range must include my age
       let filtered = data ?? [];
       if (myProfile?.age) {
         filtered = filtered.filter((p) => {
@@ -304,6 +309,25 @@ export default function SwipePage() {
     );
   }
 
+  if (iAmPaused) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center pb-28">
+        <Clock className="w-16 h-16 text-amber-400 mb-4" />
+        <h2 className="text-2xl font-bold">Your profile is paused</h2>
+        <p className="text-slate-400 mt-3 max-w-xs">
+          You’re hidden from discovery. Unpause in Settings to start swiping
+          again.
+        </p>
+        <button
+          onClick={() => (window.location.href = "/settings")}
+          className="mt-6 bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-xl text-sm"
+        >
+          Open Settings
+        </button>
+      </div>
+    );
+  }
+
   if (limitReached) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center pb-28">
@@ -370,7 +394,6 @@ export default function SwipePage() {
               NOPE
             </motion.div>
 
-            {/* Photo area with carousel */}
             <div className="relative w-full h-96 bg-slate-800">
               {photos.length > 0 ? (
                 <img
@@ -384,25 +407,18 @@ export default function SwipePage() {
                 </div>
               )}
 
-              {/* Photo dots */}
-              {photos.length > 1 && (
-                <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10">
-                  {photos.map((_, i) => (
-                    <div
-                      key={i}
-                      className={`h-1 rounded-full transition-all ${
-                        i === photoIndex
-                          ? "w-6 bg-white"
-                          : "w-4 bg-white/40"
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Tap zones for next/prev photo */}
               {photos.length > 1 && (
                 <>
+                  <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                    {photos.map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-1 rounded-full transition-all ${
+                          i === photoIndex ? "w-6 bg-white" : "w-4 bg-white/40"
+                        }`}
+                      />
+                    ))}
+                  </div>
                   <button
                     type="button"
                     className="absolute left-0 top-0 bottom-0 w-1/3 z-10"

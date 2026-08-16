@@ -15,6 +15,14 @@ interface Message {
 
 const MAX_UNANSWERED = 3;
 
+const ICEBREAKERS = [
+  "Coffee in Walkerville or a walk by the river — what’s your vibe?",
+  "What’s your favourite spot in Windsor right now?",
+  "Honestly, best pizza in the 519 — go.",
+  "Are you more downtown nights or quiet Riverside evenings?",
+  "What’s something local you’re into that most people miss?",
+];
+
 function formatTime(iso: string) {
   const d = new Date(iso);
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -166,11 +174,9 @@ export default function ChatPage() {
     }
   };
 
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !userId || !canSend || matchExpired) return;
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || !userId || !canSend || matchExpired) return;
 
-    const content = newMessage.trim();
     setNewMessage("");
 
     const { data, error } = await supabase
@@ -178,7 +184,7 @@ export default function ChatPage() {
       .insert({
         match_id: matchId,
         sender_id: userId,
-        content,
+        content: content.trim(),
       })
       .select()
       .single();
@@ -204,6 +210,11 @@ export default function ChatPage() {
         return next;
       });
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendMessage(newMessage);
   };
 
   if (loading) {
@@ -248,10 +259,24 @@ export default function ChatPage() {
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
         {messages.length === 0 && (
-          <p className="text-center text-slate-500 text-sm mt-10">
-            Say hello — you can send up to {MAX_UNANSWERED} messages before they
-            need to reply.
-          </p>
+          <div className="mt-6 mb-4">
+            <p className="text-center text-slate-500 text-sm mb-4">
+              Break the ice — pick one or write your own
+            </p>
+            <div className="space-y-2">
+              {ICEBREAKERS.map((line) => (
+                <button
+                  key={line}
+                  type="button"
+                  onClick={() => sendMessage(line)}
+                  disabled={!canSend}
+                  className="w-full text-left text-sm bg-slate-900 border border-slate-800 hover:border-rose-500/40 hover:bg-slate-800 text-slate-300 rounded-xl px-4 py-3 transition-colors"
+                >
+                  {line}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {messages.map((msg) => {
@@ -301,7 +326,7 @@ export default function ChatPage() {
       )}
 
       <form
-        onSubmit={sendMessage}
+        onSubmit={handleSubmit}
         className="border-t border-slate-800 p-3 flex gap-2 bg-slate-950"
       >
         <input

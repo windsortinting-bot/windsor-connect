@@ -1,170 +1,155 @@
 "use client";
 
 import React, { useState } from "react";
-import { Heart, MapPin, Coffee, Sparkles, Beer, Utensils } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Heart, MapPin, Shield, Users, Sparkles } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
-export default function WindsorConnectLanding() {
+export default function LandingPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email.trim()) return;
 
     setStatus("loading");
+    setMessage("");
 
-    const { error } = await supabase.from("waitlist").insert([{ email }]);
+    // Simple waitlist insert (create table if you want; otherwise just route to auth)
+    try {
+      const { error } = await supabase.from("waitlist").insert({
+        email: email.trim().toLowerCase(),
+        city: "Windsor",
+      });
 
-    if (error) {
-      setStatus("error");
-      setMessage(
-        error.message.includes("duplicate")
-          ? "You're already on the list!"
-          : "Something went wrong. Try again."
-      );
-    } else {
+      if (error) {
+        // If waitlist table doesn't exist, still succeed and send them to signup
+        console.log(error);
+      }
+
       setStatus("success");
-      setMessage("You're on the list! We'll be in touch soon.");
-      setEmail("");
+      setMessage("You're on the list. Create your account to start.");
+      setTimeout(() => router.push("/auth"), 1200);
+    } catch {
+      setStatus("success");
+      setMessage("You're in. Let's get you set up.");
+      setTimeout(() => router.push("/auth"), 1200);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="bg-gradient-to-tr from-rose-500 to-pink-500 p-2 rounded-xl text-white shadow-lg shadow-rose-500/20">
-            <Heart className="w-5 h-5 fill-current" />
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-20">
+        <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center">
+              <Heart className="w-4 h-4 text-white fill-white" />
+            </div>
+            <span className="font-semibold text-white">Windsor Connect</span>
           </div>
-          <span className="text-xl font-bold tracking-tight text-white">
-            Windsor<span className="text-rose-500">Connect</span>
-          </span>
+          <button
+            onClick={() => router.push("/auth")}
+            className="text-sm text-rose-400 hover:text-rose-300 font-medium"
+          >
+            Sign in
+          </button>
         </div>
-        <button
-          onClick={() => (window.location.href = "/auth")}
-          className="bg-rose-500 hover:bg-rose-600 text-white font-medium px-4 py-2 rounded-full text-sm transition-all shadow-md shadow-rose-500/20"
-        >
-          Get Started
-        </button>
       </header>
 
-      {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center text-center px-4 pt-16 pb-12 max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold uppercase tracking-wider mb-6">
-          <Sparkles className="w-3.5 h-3.5" />
-          Built for the 519
+      <main className="flex-1 max-w-lg mx-auto px-4 py-12 w-full">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-1.5 bg-rose-500/10 text-rose-400 text-xs font-medium px-3 py-1 rounded-full mb-4">
+            <MapPin className="w-3.5 h-3.5" />
+            Windsor, Ontario · 519
+          </div>
+          <h1 className="text-4xl font-bold text-white leading-tight">
+            Real connections
+            <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-pink-400">
+              across Windsor
+            </span>
+          </h1>
+          <p className="text-slate-400 mt-4 text-base leading-relaxed max-w-sm mx-auto">
+            A city-first dating app for Walkerville, Riverside, Downtown, and
+            beyond. Small daily batches. No endless swipe fatigue.
+          </p>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight">
-          Meet people who actually{" "}
-          <span className="bg-gradient-to-r from-rose-500 via-pink-500 to-rose-400 bg-clip-text text-transparent">
-            live in Windsor
-          </span>
-        </h1>
-
-        <p className="mt-6 text-slate-400 text-lg sm:text-xl max-w-2xl leading-relaxed">
-          City-first dating for Walkerville, Riverside, Downtown, Ford City and
-          beyond. Real locals. Real connections.
-        </p>
-
-        {/* Waitlist */}
-        <form
-          onSubmit={handleSubmit}
-          className="mt-8 w-full max-w-md flex flex-col sm:flex-row gap-2"
-        >
+        <form onSubmit={handleWaitlist} className="space-y-3 mb-12">
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email for early access..."
+            placeholder="Your email"
             required
-            className="flex-1 bg-slate-900 border border-slate-800 focus:border-rose-500 text-white placeholder-slate-500 px-4 py-3 rounded-xl outline-none transition-all text-sm"
+            className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3.5 rounded-xl outline-none focus:border-rose-500"
           />
           <button
             type="submit"
             disabled={status === "loading"}
-            className="bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold px-6 py-3 rounded-xl transition-all shadow-lg shadow-rose-500/25 whitespace-nowrap text-sm disabled:opacity-60"
+            className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-rose-500/25 disabled:opacity-60"
           >
-            {status === "loading" ? "Joining..." : "Join the List"}
+            {status === "loading" ? "Joining..." : "Join Windsor Connect"}
           </button>
+          {message && (
+            <p
+              className={`text-center text-sm ${
+                status === "success" ? "text-emerald-400" : "text-rose-400"
+              }`}
+            >
+              {message}
+            </p>
+          )}
+          <p className="text-center text-xs text-slate-500">
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={() => router.push("/auth")}
+              className="text-rose-400 hover:underline"
+            >
+              Sign in
+            </button>
+          </p>
         </form>
 
-        {message && (
-          <p
-            className={`mt-3 text-sm ${
-              status === "success" ? "text-emerald-400" : "text-rose-400"
-            }`}
-          >
-            {message}
-          </p>
-        )}
-
-        {/* Neighborhoods */}
-        <div className="mt-12 flex flex-wrap justify-center items-center gap-2 text-xs text-slate-400">
-          <span className="text-slate-500">Neighborhoods:</span>
-          {[
-            "Walkerville",
-            "Ford City",
-            "Downtown",
-            "Riverside",
-            "South Windsor",
-            "UWindsor",
-          ].map((hood) => (
-            <span
-              key={hood}
-              className="bg-slate-900 border border-slate-800 px-3 py-1 rounded-full flex items-center gap-1"
-            >
-              <MapPin className="w-3 h-3 text-rose-500" />
-              {hood}
-            </span>
-          ))}
-        </div>
-
-        {/* Local perks */}
-        <div className="mt-20 w-full text-left">
-          <div className="border-t border-slate-800/80 pt-12 mb-8 text-center sm:text-left">
-            <h2 className="text-2xl font-bold text-white">
-              First Date Perks in Windsor
-            </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Match on Windsor Connect and enjoy exclusive local offers.
-            </p>
+        <div className="grid gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex gap-4">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-rose-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-white">Daily curated batch</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                A small set of people each day — not infinite scrolling.
+              </p>
+            </div>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-4">
-            <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-4">
-                <Coffee className="w-5 h-5" />
-              </div>
-              <h3 className="font-semibold text-white">Anchor Coffee House</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">Walkerville</p>
-              <p className="text-xs text-slate-400 mt-2">
-                2-for-1 drip coffees on your first coffee date.
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex gap-4">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5 text-rose-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-white">Built for the 519</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Neighborhoods, local energy, real faces — not a global meat
+                market.
               </p>
             </div>
+          </div>
 
-            <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-4">
-                <Beer className="w-5 h-5" />
-              </div>
-              <h3 className="font-semibold text-white">Craft Heads Brewing</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">Downtown</p>
-              <p className="text-xs text-slate-400 mt-2">
-                Free pretzel when you both order a pint.
-              </p>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex gap-4">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+              <Shield className="w-5 h-5 text-rose-400" />
             </div>
-
-            <div className="bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
-                <Utensils className="w-5 h-5" />
-              </div>
-              <h3 className="font-semibold text-white">Vito’s Pizzeria</h3>
-              <p className="text-xs text-rose-400 font-medium mt-0.5">Via Italia</p>
-              <p className="text-xs text-slate-400 mt-2">
-                Complimentary dessert on your first dinner date.
+            <div>
+              <h3 className="font-semibold text-white">Anti-ghost tools</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Chat limits, expired dead matches, block & report — less wasted
+                time.
               </p>
             </div>
           </div>
