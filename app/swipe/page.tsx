@@ -92,15 +92,21 @@ export default function SwipePage() {
       .order("created_at", { ascending: false })
       .limit(30);
 
-    // if (myProfile?.target_gender && myProfile.target_gender !== "everyone") {
-//   query = query.eq("gender", myProfile.target_gender);
-// }
+    // Gender filter
+    if (myProfile?.target_gender && myProfile.target_gender !== "everyone") {
+      query = query.eq("gender", myProfile.target_gender);
+    }
 
     if (excludeIds.length > 0) {
       query = query.not("id", "in", `(${excludeIds.join(",")})`);
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Fetch profiles error:", error);
+    }
+
     setProfiles(data ?? []);
     setLoading(false);
   };
@@ -111,12 +117,14 @@ export default function SwipePage() {
     const target = profiles[currentIndex];
     setExitX(direction === "like" ? 500 : -500);
 
+    // Save the swipe
     await supabase.from("swipes").insert({
       swiper_id: userId,
       target_id: target.id,
       action: direction,
     });
 
+    // Check for mutual like and create match
     if (direction === "like") {
       const { data: mutual } = await supabase
         .from("swipes")
@@ -127,7 +135,8 @@ export default function SwipePage() {
         .maybeSingle();
 
       if (mutual) {
-        const { data: newMatch } = await supabase
+        // Try to create the match
+        const { data: newMatch, error: matchError } = await supabase
           .from("matches")
           .insert({
             user1_id: userId < target.id ? userId : target.id,
@@ -140,6 +149,23 @@ export default function SwipePage() {
           setMatchedUser(target);
           setMatchId(newMatch.id);
           setShowMatch(true);
+        } else {
+          // Match may already exist — fetch it and still show popup
+          const { data: existing } = await supabase
+            .from("matches")
+            .select("id")
+            .or(
+              `and(user1_id.eq.${userId},user2_id.eq.${target.id}),and(user1_id.eq.${target.id},user2_id.eq.${userId})`
+            )
+            .maybeSingle();
+
+          if (existing) {
+            setMatchedUser(target);
+            setMatchId(existing.id);
+            setShowMatch(true);
+          } else {
+            console.error("Match creation failed:", matchError);
+          }
         }
       }
     }
@@ -237,6 +263,7 @@ export default function SwipePage() {
             animate={{ x: exitX }}
             transition={{ duration: 0.25 }}
           >
+            {/* LIKE stamp */}
             <motion.div
               style={{ opacity: likeOpacity }}
               className="absolute top-8 left-6 border-4 border-emerald-500 text-emerald-500 font-extrabold text-3xl px-4 py-1 rounded-lg -rotate-12 z-20"
@@ -244,6 +271,7 @@ export default function SwipePage() {
               LIKE
             </motion.div>
 
+            {/* NOPE stamp */}
             <motion.div
               style={{ opacity: nopeOpacity }}
               className="absolute top-8 right-6 border-4 border-rose-500 text-rose-500 font-extrabold text-3xl px-4 py-1 rounded-lg rotate-12 z-20"
@@ -308,7 +336,7 @@ export default function SwipePage() {
         </button>
       </div>
 
-      {/* Block & Report buttons */}
+      {/* Block & Report */}
       <div className="flex justify-center gap-8 mt-5 text-sm">
         <button
           onClick={handleBlock}
@@ -324,6 +352,7 @@ export default function SwipePage() {
         </button>
       </div>
 
+      {/* Match popup */}
       {matchedUser && (
         <MatchModal
           isOpen={showMatch}
