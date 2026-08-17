@@ -52,7 +52,10 @@ export default function ChatPage() {
   const [canSend, setCanSend] = useState(true);
   const [limitMessage, setLimitMessage] = useState("");
   const [matchExpired, setMatchExpired] = useState(false);
+  const [otherTyping, setOtherTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const typingTimeout = useRef<any>(null);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -117,10 +120,13 @@ export default function ChatPage() {
   }, [matchId, router]);
 
   useEffect(() => {
-    if (!matchId) return;
+    if (!matchId || !userId) return;
 
-    const channel = supabase
-      .channel(`chat-${matchId}`)
+    const channel = supabase.channel(`chat-${matchId}`, {
+      config: { presence: { key: userId } },
+    });
+
+    channel
       .on(
         "postgres_changes",
         {
@@ -134,12 +140,22 @@ export default function ChatPage() {
           setMessages((prev) => {
             if (prev.some((m) => m.id === msg.id)) return prev;
             const next = [...prev, msg];
-            if (userId) checkSendLimit(next, userId);
+            checkSendLimit(next, userId);
             return next;
           });
+          setOtherTyping(false);
         }
       )
+      .on("broadcast", { event: "typing" }, ({ payload }) => {
+        if (payload.userId !== userId) {
+          setOtherTyping(true);
+          if (typingTimeout.current) clearTimeout(typingTimeout.current);
+          typingTimeout.current = setTimeout(() => setOtherTyping(false), 2000);
+        }
+      })
       .subscribe();
+
+    channelRef.current = channel;
 
     return () => {
       supabase.removeChannel(channel);
@@ -148,7 +164,15 @@ export default function ChatPage() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, otherTyping]);
+
+  const broadcastTyping = () => {
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { userId },
+    });
+  };
 
   const checkSendLimit = (msgs: Message[], currentUserId: string) => {
     if (msgs.length === 0) {
@@ -315,6 +339,15 @@ export default function ChatPage() {
             </React.Fragment>
           );
         })}
+
+        {otherTyping && (
+          <div className="flex justify-start mb-1">
+            <div className="bg-slate-800 text-slate-400 text-xs px-4 py-2 rounded-2xl rounded-bl-md">
+              {otherName} is typing…
+            </div>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
@@ -332,7 +365,10 @@ export default function ChatPage() {
         <input
           type="text"
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={(e) => {
+            setNewMessage(e.target.value);
+            broadcastTyping();
+          }}
           placeholder={canSend ? "Type a message..." : "Waiting for a reply..."}
           disabled={!canSend}
           className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-rose-500 disabled:opacity-50"

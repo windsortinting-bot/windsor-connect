@@ -14,6 +14,15 @@ const NEIGHBORHOODS = [
   "University of Windsor",
 ];
 
+const PROMPT_OPTIONS = [
+  "A perfect Windsor Saturday looks like…",
+  "My ideal first date is…",
+  "I'm weirdly good at…",
+  "The way to my heart is…",
+  "Don't hate me if I…",
+  "I geek out on…",
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -25,6 +34,7 @@ export default function OnboardingPage() {
   const [gender, setGender] = useState("");
   const [targetGender, setTargetGender] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
+  const [preferredNeighborhoods, setPreferredNeighborhoods] = useState<string[]>([]);
   const [bio, setBio] = useState("");
   const [minAgePref, setMinAgePref] = useState("21");
   const [maxAgePref, setMaxAgePref] = useState("45");
@@ -33,6 +43,13 @@ export default function OnboardingPage() {
   const [kidsPreference, setKidsPreference] = useState("open");
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  const [prompt1, setPrompt1] = useState(PROMPT_OPTIONS[0]);
+  const [prompt1Answer, setPrompt1Answer] = useState("");
+  const [prompt2, setPrompt2] = useState(PROMPT_OPTIONS[1]);
+  const [prompt2Answer, setPrompt2Answer] = useState("");
+  const [prompt3, setPrompt3] = useState(PROMPT_OPTIONS[2]);
+  const [prompt3Answer, setPrompt3Answer] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -59,6 +76,7 @@ export default function OnboardingPage() {
         setGender(profile.gender || "");
         setTargetGender(profile.target_gender || "");
         setNeighborhood(profile.neighborhood || "");
+        setPreferredNeighborhoods(profile.preferred_neighborhoods || []);
         setBio(profile.bio || "");
         setMinAgePref(profile.min_age_pref ? String(profile.min_age_pref) : "21");
         setMaxAgePref(profile.max_age_pref ? String(profile.max_age_pref) : "45");
@@ -66,6 +84,12 @@ export default function OnboardingPage() {
         setKidsStatus(profile.kids_status || "prefer_not");
         setKidsPreference(profile.kids_preference || "open");
         setPhotoUrls(profile.photo_urls || []);
+        setPrompt1(profile.prompt_1 || PROMPT_OPTIONS[0]);
+        setPrompt1Answer(profile.prompt_1_answer || "");
+        setPrompt2(profile.prompt_2 || PROMPT_OPTIONS[1]);
+        setPrompt2Answer(profile.prompt_2_answer || "");
+        setPrompt3(profile.prompt_3 || PROMPT_OPTIONS[2]);
+        setPrompt3Answer(profile.prompt_3_answer || "");
       }
 
       setLoading(false);
@@ -73,6 +97,12 @@ export default function OnboardingPage() {
 
     load();
   }, [router]);
+
+  const togglePreferred = (n: string) => {
+    setPreferredNeighborhoods((prev) =>
+      prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]
+    );
+  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!userId || !e.target.files || e.target.files.length === 0) return;
@@ -88,7 +118,6 @@ export default function OnboardingPage() {
     }
 
     setUploading(true);
-
     const ext = file.name.split(".").pop();
     const filePath = `${userId}/${Date.now()}.${ext}`;
 
@@ -131,7 +160,6 @@ export default function OnboardingPage() {
 
     const minA = parseInt(minAgePref) || 18;
     const maxA = parseInt(maxAgePref) || 99;
-
     if (minA > maxA) {
       alert("Min age cannot be higher than max age.");
       return;
@@ -146,6 +174,7 @@ export default function OnboardingPage() {
       gender,
       target_gender: targetGender,
       neighborhood,
+      preferred_neighborhoods: preferredNeighborhoods,
       city: "Windsor",
       bio: bio.trim() || null,
       photo_urls: photoUrls,
@@ -154,7 +183,14 @@ export default function OnboardingPage() {
       height: height.trim() || null,
       kids_status: kidsStatus,
       kids_preference: kidsPreference,
+      prompt_1: prompt1,
+      prompt_1_answer: prompt1Answer.trim() || null,
+      prompt_2: prompt2,
+      prompt_2_answer: prompt2Answer.trim() || null,
+      prompt_3: prompt3,
+      prompt_3_answer: prompt3Answer.trim() || null,
       is_onboarded: true,
+      is_banned: false,
       updated_at: new Date().toISOString(),
     });
 
@@ -225,9 +261,7 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">
-              Do you have kids?
-            </label>
+            <label className="text-sm text-slate-400 mb-1 block">Do you have kids?</label>
             <select
               value={kidsStatus}
               onChange={(e) => setKidsStatus(e.target.value)}
@@ -240,9 +274,7 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">
-              Open to kids?
-            </label>
+            <label className="text-sm text-slate-400 mb-1 block">Open to kids?</label>
             <select
               value={kidsPreference}
               onChange={(e) => setKidsPreference(e.target.value)}
@@ -311,7 +343,7 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">Neighborhood</label>
+            <label className="text-sm text-slate-400 mb-1 block">My neighborhood</label>
             <select
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
@@ -328,6 +360,31 @@ export default function OnboardingPage() {
           </div>
 
           <div>
+            <label className="text-sm text-slate-400 mb-2 block">
+              Neighborhoods I prefer (optional)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {NEIGHBORHOODS.map((n) => {
+                const active = preferredNeighborhoods.includes(n);
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => togglePreferred(n)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                      active
+                        ? "bg-rose-500/20 border-rose-500 text-rose-300"
+                        : "bg-slate-900 border-slate-700 text-slate-400"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
             <label className="text-sm text-slate-400 mb-1 block">Bio</label>
             <textarea
               value={bio}
@@ -338,10 +395,75 @@ export default function OnboardingPage() {
             />
           </div>
 
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-slate-400 font-medium">Profile prompts (optional)</p>
+
+            <div className="space-y-2">
+              <select
+                value={prompt1}
+                onChange={(e) => setPrompt1(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
+              >
+                {PROMPT_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={prompt1Answer}
+                onChange={(e) => setPrompt1Answer(e.target.value)}
+                placeholder="Your answer..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <select
+                value={prompt2}
+                onChange={(e) => setPrompt2(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
+              >
+                {PROMPT_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={prompt2Answer}
+                onChange={(e) => setPrompt2Answer(e.target.value)}
+                placeholder="Your answer..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <select
+                value={prompt3}
+                onChange={(e) => setPrompt3(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
+              >
+                {PROMPT_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={prompt3Answer}
+                onChange={(e) => setPrompt3Answer(e.target.value)}
+                placeholder="Your answer..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="text-sm text-slate-400 mb-2 block">
-              Photos (up to 3)
-            </label>
+            <label className="text-sm text-slate-400 mb-2 block">Photos (up to 3)</label>
             <div className="flex gap-3 flex-wrap">
               {photoUrls.map((url, i) => (
                 <div

@@ -73,6 +73,18 @@ export default function ViewProfilePage() {
   const statusLabel = kidsStatusLabel(profile.kids_status);
   const prefLabel = kidsPrefLabel(profile.kids_preference);
 
+  const prompts = [
+    profile.prompt_1_answer
+      ? { q: profile.prompt_1, a: profile.prompt_1_answer }
+      : null,
+    profile.prompt_2_answer
+      ? { q: profile.prompt_2, a: profile.prompt_2_answer }
+      : null,
+    profile.prompt_3_answer
+      ? { q: profile.prompt_3, a: profile.prompt_3_answer }
+      : null,
+  ].filter(Boolean) as { q: string; a: string }[];
+
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
@@ -163,6 +175,17 @@ export default function ViewProfilePage() {
 
             {profile.bio && (
               <p className="text-slate-300 mt-4 leading-relaxed">{profile.bio}</p>
+            )}
+
+            {prompts.length > 0 && (
+              <div className="space-y-2 mt-5">
+                {prompts.map((p, i) => (
+                  <div key={i} className="bg-slate-800/60 rounded-xl px-3 py-2.5">
+                    <p className="text-[11px] text-slate-500 mb-0.5">{p.q}</p>
+                    <p className="text-sm text-slate-200">{p.a}</p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

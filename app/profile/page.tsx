@@ -11,6 +11,7 @@ import {
   Shield,
   AlertTriangle,
   Settings,
+  Share2,
 } from "lucide-react";
 
 function kidsStatusLabel(status?: string | null) {
@@ -119,6 +120,18 @@ export default function ProfilePage() {
 
   const pref = kidsPrefLabel(profile.kids_preference);
 
+  const prompts = [
+    profile.prompt_1_answer
+      ? { q: profile.prompt_1, a: profile.prompt_1_answer }
+      : null,
+    profile.prompt_2_answer
+      ? { q: profile.prompt_2, a: profile.prompt_2_answer }
+      : null,
+    profile.prompt_3_answer
+      ? { q: profile.prompt_3, a: profile.prompt_3_answer }
+      : null,
+  ].filter(Boolean) as { q: string; a: string }[];
+
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-10 pb-28">
       <div className="max-w-md mx-auto">
@@ -220,6 +233,17 @@ export default function ProfilePage() {
             {profile.bio && (
               <p className="text-slate-300 mt-4 leading-relaxed">{profile.bio}</p>
             )}
+
+            {prompts.length > 0 && (
+              <div className="space-y-2 mt-5">
+                {prompts.map((p, i) => (
+                  <div key={i} className="bg-slate-800/60 rounded-xl px-3 py-2.5">
+                    <p className="text-[11px] text-slate-500 mb-0.5">{p.q}</p>
+                    <p className="text-sm text-slate-200">{p.a}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -237,6 +261,14 @@ export default function ProfilePage() {
         >
           <Settings className="w-4 h-4" />
           Settings
+        </button>
+
+        <button
+          onClick={() => router.push("/invite")}
+          className="w-full mt-3 flex items-center justify-center gap-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 py-3.5 rounded-xl transition-all text-sm"
+        >
+          <Share2 className="w-4 h-4" />
+          Invite friends
         </button>
 
         <button

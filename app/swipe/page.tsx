@@ -28,6 +28,12 @@ interface Profile {
   height?: string | null;
   kids_status?: string | null;
   kids_preference?: string | null;
+  prompt_1?: string | null;
+  prompt_1_answer?: string | null;
+  prompt_2?: string | null;
+  prompt_2_answer?: string | null;
+  prompt_3?: string | null;
+  prompt_3_answer?: string | null;
 }
 
 function kidsStatusLabel(status?: string | null) {
@@ -81,10 +87,15 @@ export default function SwipePage() {
         const { data: myProfile } = await supabase
           .from("profiles")
           .select(
-            "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender, is_paused"
+            "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender, is_paused, is_banned"
           )
           .eq("id", user.id)
           .single();
+
+        if (myProfile?.is_banned) {
+          setLoading(false);
+          return;
+        }
 
         setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
         setIAmPaused(myProfile?.is_paused ?? false);
@@ -143,6 +154,7 @@ export default function SwipePage() {
       .select("*")
       .eq("is_onboarded", true)
       .or("is_paused.is.null,is_paused.eq.false")
+      .or("is_banned.is.null,is_banned.eq.false")
       .order("created_at", { ascending: false })
       .limit(40);
 
@@ -167,7 +179,7 @@ export default function SwipePage() {
       console.error("Fetch profiles error:", error);
       setProfiles([]);
     } else {
-      let filtered = data ?? [];
+      let filtered = (data ?? []).filter((p) => !p.is_banned && !p.is_paused);
       if (myProfile?.age) {
         filtered = filtered.filter((p) => {
           const min = p.min_age_pref ?? 18;
@@ -451,6 +463,18 @@ export default function SwipePage() {
   const statusLabel = kidsStatusLabel(currentProfile.kids_status);
   const prefLabel = kidsPrefLabel(currentProfile.kids_preference);
 
+  const prompts = [
+    currentProfile.prompt_1_answer
+      ? { q: currentProfile.prompt_1, a: currentProfile.prompt_1_answer }
+      : null,
+    currentProfile.prompt_2_answer
+      ? { q: currentProfile.prompt_2, a: currentProfile.prompt_2_answer }
+      : null,
+    currentProfile.prompt_3_answer
+      ? { q: currentProfile.prompt_3, a: currentProfile.prompt_3_answer }
+      : null,
+  ].filter(Boolean) as { q: string | null | undefined; a: string }[];
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-28">
       <div className="w-full max-w-sm mb-4 flex justify-between items-center text-sm text-slate-400">
@@ -485,7 +509,7 @@ export default function SwipePage() {
               NOPE
             </motion.div>
 
-            <div className="relative w-full h-96 bg-slate-800">
+            <div className="relative w-full h-80 bg-slate-800">
               {photos.length > 0 ? (
                 <img
                   src={photos[photoIndex]}
@@ -532,9 +556,9 @@ export default function SwipePage() {
               )}
             </div>
 
-            <div className="p-6">
+            <div className="p-5">
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-3xl font-bold text-white">
+                <h2 className="text-2xl font-bold text-white">
                   {currentProfile.first_name}
                 </h2>
                 {currentProfile.age && (
@@ -563,16 +587,30 @@ export default function SwipePage() {
               </div>
 
               {currentProfile.neighborhood && (
-                <div className="flex items-center gap-1 text-rose-400 text-sm mb-4">
+                <div className="flex items-center gap-1 text-rose-400 text-sm mb-3">
                   <MapPin className="w-4 h-4" />
                   {currentProfile.neighborhood}
                 </div>
               )}
 
               {currentProfile.bio && (
-                <p className="text-slate-300 leading-relaxed">
+                <p className="text-slate-300 text-sm leading-relaxed mb-3">
                   {currentProfile.bio}
                 </p>
+              )}
+
+              {prompts.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  {prompts.slice(0, 2).map((p, i) => (
+                    <div
+                      key={i}
+                      className="bg-slate-800/60 rounded-xl px-3 py-2.5"
+                    >
+                      <p className="text-[11px] text-slate-500 mb-0.5">{p.q}</p>
+                      <p className="text-sm text-slate-200">{p.a}</p>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </motion.div>
