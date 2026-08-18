@@ -16,10 +16,12 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  Star,
 } from "lucide-react";
 import MatchModal from "../components/MatchModal";
 
 const DAILY_LIMIT = 8;
+const SUPER_LIKE_LIMIT = 1;
 
 interface Profile {
   id: string;
@@ -75,6 +77,7 @@ export default function SwipePage() {
   const [iAmPaused, setIAmPaused] = useState(false);
   const [lastPassed, setLastPassed] = useState<Profile | null>(null);
   const [canSecondLook, setCanSecondLook] = useState(false);
+  const [superLikesLeft, setSuperLikesLeft] = useState(SUPER_LIKE_LIMIT);
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -94,14 +97,20 @@ export default function SwipePage() {
 
       setUserId(user.id);
 
+      await supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", user.id);
+
       await supabase.rpc("reset_daily_swipes_if_needed", {
         p_user_id: user.id,
       });
 
+      // Reset super likes daily
       const { data: myProfile } = await supabase
         .from("profiles")
         .select(
-          "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender, is_paused, is_banned"
+          "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender, is_paused, is_banned, super_likes_used, super_likes_reset_at"
         )
         .eq("id", user.id)
         .single();
@@ -110,6 +119,27 @@ export default function SwipePage() {
         setLoading(false);
         return;
       }
+
+      // Daily super like reset
+      const resetAt = myProfile?.super_likes_reset_at
+        ? new Date(myProfile.super_likes_reset_at)
+        : null;
+      const now = new Date();
+      let superUsed = myProfile?.super_likes_used ?? 0;
+      if (
+        !resetAt ||
+        resetAt.toDateString() !== now.toDateString()
+      ) {
+        superUsed = 0;
+        await supabase
+          .from("profiles")
+          .update({
+            super_likes_used: 0,
+            super_likes_reset_at: now.toISOString(),
+          })
+          .eq("id", user.id);
+      }
+      setSuperLikesLeft(Math.max(0, SUPER_LIKE_LIMIT - superUsed));
 
       setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
       setIAmPaused(myProfile?.is_paused ?? false);
@@ -227,8 +257,12 @@ export default function SwipePage() {
     if (left <= 0) setLimitReached(true);
   };
 
-  const handleSwipe = async (action: "like" | "pass") => {
+  const handleSwipe = async (
+    action: "like" | "pass",
+    isSuperLike = false
+  ) => {
     if (!userId || currentIndex >= profiles.length || limitReached) return;
+    if (isSuperLike && superLikesLeft <= 0) return;
 
     const target = profiles[currentIndex];
 
@@ -236,7 +270,22 @@ export default function SwipePage() {
       swiper_id: userId,
       target_id: target.id,
       action,
+      is_super_like: isSuperLike,
     });
+
+    if (isSuperLike) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("super_likes_used")
+        .eq("id", userId)
+        .single();
+      const used = (data?.super_likes_used ?? 0) + 1;
+      await supabase
+        .from("profiles")
+        .update({ super_likes_used: used })
+        .eq("id", userId);
+      setSuperLikesLeft(Math.max(0, SUPER_LIKE_LIMIT - used));
+    }
 
     if (action === "pass") {
       setLastPassed(target);
@@ -490,7 +539,13 @@ export default function SwipePage() {
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-28">
       <div className="w-full max-w-sm mb-4 flex justify-between items-center text-sm text-slate-400">
         <span>Today’s batch</span>
-        <span className="text-rose-400 font-medium">{swipesLeft} left</span>
+        <div className="flex items-center gap-3">
+          <span className="text-amber-400 font-medium flex items-center gap-1">
+            <Star className="w-3.5 h-3.5" />
+            {superLikesLeft}
+          </span>
+          <span className="text-rose-400 font-medium">{swipesLeft} left</span>
+        </div>
       </div>
 
       <div className="w-full max-w-sm relative">
@@ -521,7 +576,6 @@ export default function SwipePage() {
               NOPE
             </motion.div>
 
-            {/* Photo — drag works on this area */}
             <div className="relative w-full h-80 bg-slate-800 select-none">
               {photos.length > 0 ? (
                 <img
@@ -548,8 +602,6 @@ export default function SwipePage() {
                       />
                     ))}
                   </div>
-
-                  {/* Small chevrons only — do not block card drag */}
                   <button
                     type="button"
                     className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white"
@@ -639,29 +691,38 @@ export default function SwipePage() {
         </AnimatePresence>
       </div>
 
-      <div className="flex justify-center items-center gap-6 mt-8">
+      <div className="flex justify-center items-center gap-5 mt-8">
         <button
           onClick={() => handleSwipe("pass")}
-          className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center hover:bg-slate-700 active:scale-95 transition-all"
+          className="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center hover:bg-slate-700 active:scale-95 transition-all"
         >
-          <X className="w-8 h-8 text-slate-400" />
+          <X className="w-7 h-7 text-slate-400" />
         </button>
 
         {canSecondLook && (
           <button
             onClick={handleSecondLook}
             title="Second Look"
-            className="w-12 h-12 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center hover:border-amber-500/50 hover:text-amber-400 text-slate-400 transition-all"
+            className="w-11 h-11 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center hover:border-amber-500/50 text-slate-400 transition-all"
           >
-            <RotateCcw className="w-5 h-5" />
+            <RotateCcw className="w-4 h-4" />
           </button>
         )}
 
         <button
-          onClick={() => handleSwipe("like")}
-          className="w-16 h-16 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-rose-500/30"
+          onClick={() => handleSwipe("like", true)}
+          disabled={superLikesLeft <= 0}
+          title="Super Like"
+          className="w-12 h-12 rounded-full bg-slate-900 border border-amber-500/40 flex items-center justify-center hover:bg-amber-500/20 disabled:opacity-40 active:scale-95 transition-all"
         >
-          <Heart className="w-8 h-8 text-white fill-white" />
+          <Star className="w-6 h-6 text-amber-400 fill-amber-400" />
+        </button>
+
+        <button
+          onClick={() => handleSwipe("like")}
+          className="w-14 h-14 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 flex items-center justify-center hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-rose-500/30"
+        >
+          <Heart className="w-7 h-7 text-white fill-white" />
         </button>
       </div>
 

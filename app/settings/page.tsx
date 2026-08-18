@@ -7,18 +7,23 @@ import {
   ArrowLeft,
   Pause,
   Play,
-  Shield,
   LogOut,
   Trash2,
-  User,
+  Shield,
+  Share2,
+  Bell,
 } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [notifyMatches, setNotifyMatches] = useState(true);
+  const [notifyMessages, setNotifyMessages] = useState(true);
+  const [notifyLikes, setNotifyLikes] = useState(true);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -33,13 +38,27 @@ export default function SettingsPage() {
 
       setUserId(user.id);
 
-      const { data } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
-        .select("is_paused")
+        .select(
+          "is_paused, notify_matches, notify_messages, notify_likes"
+        )
         .eq("id", user.id)
         .single();
 
-      setIsPaused(data?.is_paused ?? false);
+      if (profile) {
+        setIsPaused(profile.is_paused ?? false);
+        setNotifyMatches(profile.notify_matches ?? true);
+        setNotifyMessages(profile.notify_messages ?? true);
+        setNotifyLikes(profile.notify_likes ?? true);
+      }
+
+      // Touch last active
+      await supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", user.id);
+
       setLoading(false);
     };
 
@@ -49,7 +68,6 @@ export default function SettingsPage() {
   const togglePause = async () => {
     if (!userId) return;
     setSaving(true);
-
     const next = !isPaused;
     const { error } = await supabase
       .from("profiles")
@@ -57,36 +75,53 @@ export default function SettingsPage() {
       .eq("id", userId);
 
     if (error) {
-      alert("Could not update. Try again.");
+      setMessage(error.message);
     } else {
       setIsPaused(next);
+      setMessage(next ? "Profile paused — you’re hidden." : "Profile is live again.");
     }
     setSaving(false);
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
+  const saveNotify = async (
+    field: "notify_matches" | "notify_messages" | "notify_likes",
+    value: boolean
+  ) => {
+    if (!userId) return;
+    await supabase
+      .from("profiles")
+      .update({ [field]: value })
+      .eq("id", userId);
   };
 
-  const handleDeleteAccount = async () => {
-    if (!confirm("This will permanently delete your account. Are you sure?"))
-      return;
-    if (!confirm("Really delete everything? This cannot be undone.")) return;
-    if (!userId) return;
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/auth");
+  };
 
-    await supabase
-      .from("swipes")
-      .delete()
-      .or(`swiper_id.eq.${userId},target_id.eq.${userId}`);
-    await supabase
-      .from("matches")
-      .delete()
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
-    await supabase
-      .from("blocks")
-      .delete()
-      .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+  const handleDelete = async () => {
+    if (!userId) return;
+    const ok = confirm(
+      "Delete your account permanently? This cannot be undone."
+    );
+    if (!ok) return;
+
+    const confirmText = prompt('Type DELETE to confirm:');
+    if (confirmText !== "DELETE") {
+      alert("Cancelled.");
+      return;
+    }
+
+    // Clean related rows best-effort
+    await supabase.from("messages").delete().eq("sender_id", userId);
+    await supabase.from("swipes").delete().eq("swiper_id", userId);
+    await supabase.from("swipes").delete().eq("target_id", userId);
+    await supabase.from("matches").delete().or(
+      `user1_id.eq.${userId},user2_id.eq.${userId}`
+    );
+    await supabase.from("blocks").delete().or(
+      `blocker_id.eq.${userId},blocked_id.eq.${userId}`
+    );
     await supabase.from("profiles").delete().eq("id", userId);
     await supabase.auth.signOut();
     router.push("/");
@@ -95,7 +130,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        Loading...
+        Loading settings...
       </div>
     );
   }
@@ -104,88 +139,151 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-6"
+          onClick={() => router.push("/profile")}
+          className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          Back to profile
         </button>
 
-        <h1 className="text-3xl font-bold mb-8">Settings</h1>
+        <h1 className="text-3xl font-bold mb-2">Settings</h1>
+        <p className="text-slate-500 text-sm mb-8">
+          Control your Windsor Connect experience
+        </p>
 
-        {/* Pause profile */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
-                {isPaused ? (
-                  <Play className="w-5 h-5 text-emerald-400" />
-                ) : (
-                  <Pause className="w-5 h-5 text-amber-400" />
-                )}
-              </div>
+        {message && (
+          <p className="mb-4 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+            {message}
+          </p>
+        )}
+
+        {/* Pause */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              {isPaused ? (
+                <Pause className="w-5 h-5 text-amber-400 mt-0.5" />
+              ) : (
+                <Play className="w-5 h-5 text-emerald-400 mt-0.5" />
+              )}
               <div>
-                <h2 className="font-semibold text-white">
-                  {isPaused ? "Profile paused" : "Pause profile"}
-                </h2>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="font-semibold">
+                  {isPaused ? "Profile paused" : "Profile active"}
+                </p>
+                <p className="text-sm text-slate-500 mt-1">
                   {isPaused
-                    ? "You’re hidden from swipe. Unpause to appear again."
-                    : "Hide yourself from discovery without deleting your account."}
+                    ? "You’re hidden from swipe and likes."
+                    : "Others can see and match with you."}
                 </p>
               </div>
             </div>
+            <button
+              onClick={togglePause}
+              disabled={saving}
+              className={`px-4 py-2 rounded-xl text-sm font-medium ${
+                isPaused
+                  ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                  : "bg-slate-800 hover:bg-slate-700 text-white"
+              }`}
+            >
+              {isPaused ? "Unpause" : "Pause"}
+            </button>
           </div>
-          <button
-            onClick={togglePause}
-            disabled={saving}
-            className={`w-full mt-4 py-3 rounded-xl text-sm font-medium transition-all ${
-              isPaused
-                ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
-                : "bg-amber-500/15 text-amber-400 hover:bg-amber-500/25"
-            }`}
-          >
-            {saving
-              ? "Saving..."
-              : isPaused
-              ? "Unpause profile"
-              : "Pause profile"}
-          </button>
         </div>
 
-        <div className="space-y-2">
-          <button
-            onClick={() => router.push("/onboarding")}
-            className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-2xl px-5 py-4 text-left"
-          >
-            <User className="w-5 h-5 text-slate-400" />
-            <span>Edit profile</span>
-          </button>
+        {/* Notifications */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Bell className="w-5 h-5 text-rose-400" />
+            <p className="font-semibold">Notifications</p>
+          </div>
 
+          {[
+            {
+              label: "New matches",
+              value: notifyMatches,
+              set: setNotifyMatches,
+              field: "notify_matches" as const,
+            },
+            {
+              label: "New messages",
+              value: notifyMessages,
+              set: setNotifyMessages,
+              field: "notify_messages" as const,
+            },
+            {
+              label: "New likes",
+              value: notifyLikes,
+              set: setNotifyLikes,
+              field: "notify_likes" as const,
+            },
+          ].map((item) => (
+            <label
+              key={item.field}
+              className="flex items-center justify-between py-3 border-t border-slate-800 first:border-0"
+            >
+              <span className="text-sm text-slate-300">{item.label}</span>
+              <input
+                type="checkbox"
+                checked={item.value}
+                onChange={async (e) => {
+                  item.set(e.target.checked);
+                  await saveNotify(item.field, e.target.checked);
+                }}
+                className="w-5 h-5 accent-rose-500"
+              />
+            </label>
+          ))}
+          <p className="text-xs text-slate-600 mt-2">
+            Preferences are saved. Push alerts can be wired later.
+          </p>
+        </div>
+
+        {/* Links */}
+        <div className="space-y-2 mb-6">
+          <button
+            onClick={() => router.push("/filters")}
+            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm"
+          >
+            Discovery filters
+          </button>
+          <button
+            onClick={() => router.push("/invite")}
+            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+          >
+            <Share2 className="w-4 h-4 text-rose-400" />
+            Invite friends
+          </button>
           <button
             onClick={() => router.push("/safety")}
-            className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-2xl px-5 py-4 text-left"
+            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
           >
-            <Shield className="w-5 h-5 text-slate-400" />
-            <span>Safety tips</span>
+            <Shield className="w-4 h-4 text-rose-400" />
+            Safety tips
           </button>
-
           <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-2xl px-5 py-4 text-left"
+            onClick={() => router.push("/onboarding")}
+            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm"
           >
-            <LogOut className="w-5 h-5 text-slate-400" />
-            <span>Log out</span>
-          </button>
-
-          <button
-            onClick={handleDeleteAccount}
-            className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-rose-950/40 rounded-2xl px-5 py-4 text-left text-rose-400"
-          >
-            <Trash2 className="w-5 h-5" />
-            <span>Delete account</span>
+            Edit profile
           </button>
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-xl py-3 text-sm mb-3"
+        >
+          <LogOut className="w-4 h-4" />
+          Log out
+        </button>
+
+        <button
+          onClick={handleDelete}
+          className="w-full flex items-center justify-center gap-2 text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 rounded-xl py-3 text-sm"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete account
+        </button>
       </div>
     </div>
   );

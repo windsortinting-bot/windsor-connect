@@ -12,6 +12,21 @@ interface MatchItem {
   age: number | null;
   neighborhood: string | null;
   photo: string | null;
+  lastActiveAt: string | null;
+}
+
+function lastActiveLabel(iso: string | null) {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 15) return "Active now";
+  if (mins < 60) return `Active ${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Active ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Active yesterday";
+  if (days < 7) return `Active ${days}d ago`;
+  return null;
 }
 
 export default function MatchesPage() {
@@ -32,6 +47,11 @@ export default function MatchesPage() {
       }
 
       setUserId(user.id);
+
+      await supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", user.id);
 
       const { data: matchRows, error } = await supabase
         .from("matches")
@@ -67,7 +87,7 @@ export default function MatchesPage() {
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, first_name, age, neighborhood, photo_urls")
+        .select("id, first_name, age, neighborhood, photo_urls, last_active_at")
         .in("id", otherIds);
 
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
@@ -85,6 +105,7 @@ export default function MatchesPage() {
           age: p.age,
           neighborhood: p.neighborhood,
           photo: p.photo_urls?.[0] || null,
+          lastActiveAt: p.last_active_at || null,
         });
       }
 
@@ -95,10 +116,9 @@ export default function MatchesPage() {
     load();
   }, [router]);
 
-  const handleUnmatch = async (matchId: string, otherId: string) => {
+  const handleUnmatch = async (matchId: string) => {
     if (!userId) return;
     if (!confirm("Unmatch this person?")) return;
-
     await supabase.from("matches").delete().eq("id", matchId);
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
@@ -106,7 +126,6 @@ export default function MatchesPage() {
   const handleBlock = async (matchId: string, otherId: string, name: string) => {
     if (!userId) return;
     if (!confirm(`Block ${name}?`)) return;
-
     await supabase.from("blocks").insert({
       blocker_id: userId,
       blocked_id: otherId,
@@ -147,75 +166,86 @@ export default function MatchesPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {matches.map((m) => (
-              <div
-                key={m.matchId}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-4"
-              >
-                <button
-                  type="button"
-                  onClick={() => router.push(`/chat/${m.matchId}`)}
-                  className="w-full flex items-center gap-3 text-left"
+            {matches.map((m) => {
+              const active = lastActiveLabel(m.lastActiveAt);
+              return (
+                <div
+                  key={m.matchId}
+                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4"
                 >
-                  <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800 flex-shrink-0">
-                    {m.photo ? (
-                      <img
-                        src={m.photo}
-                        alt={m.firstName}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Heart className="w-7 h-7 text-slate-600" />
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/chat/${m.matchId}`)}
+                    className="w-full flex items-center gap-3 text-left"
+                  >
+                    <div className="relative w-16 h-16 rounded-full overflow-hidden bg-slate-800 flex-shrink-0">
+                      {m.photo ? (
+                        <img
+                          src={m.photo}
+                          alt={m.firstName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Heart className="w-7 h-7 text-slate-600" />
+                        </div>
+                      )}
+                      {active === "Active now" && (
+                        <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-slate-900" />
+                      )}
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white text-lg">
-                      {m.firstName}
-                      {m.age ? `, ${m.age}` : ""}
-                    </p>
-                    {m.neighborhood && (
-                      <div className="flex items-center gap-1 text-rose-400 text-sm mt-0.5">
-                        <MapPin className="w-3.5 h-3.5" />
-                        {m.neighborhood}
-                      </div>
-                    )}
-                    <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      Click here to chat
-                    </p>
-                  </div>
-                </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-white text-lg">
+                        {m.firstName}
+                        {m.age ? `, ${m.age}` : ""}
+                      </p>
+                      {m.neighborhood && (
+                        <div className="flex items-center gap-1 text-rose-400 text-sm mt-0.5">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {m.neighborhood}
+                        </div>
+                      )}
+                      {active && (
+                        <p className="text-xs text-emerald-400/90 mt-1">
+                          {active}
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        Click here to chat
+                      </p>
+                    </div>
+                  </button>
 
-                <div className="flex gap-3 mt-4 pt-3 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/profile/${m.otherId}`)}
-                    className="flex-1 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-xl py-2"
-                  >
-                    View profile
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleUnmatch(m.matchId, m.otherId)}
-                    className="flex-1 text-sm text-slate-400 hover:text-rose-400 border border-slate-700 rounded-xl py-2"
-                  >
-                    Unmatch
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleBlock(m.matchId, m.otherId, m.firstName)
-                    }
-                    className="flex-1 text-sm text-slate-400 hover:text-rose-400 border border-slate-700 rounded-xl py-2"
-                  >
-                    Block
-                  </button>
+                  <div className="flex gap-3 mt-4 pt-3 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/profile/${m.otherId}`)}
+                      className="flex-1 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-xl py-2"
+                    >
+                      View profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUnmatch(m.matchId)}
+                      className="flex-1 text-sm text-slate-400 hover:text-rose-400 border border-slate-700 rounded-xl py-2"
+                    >
+                      Unmatch
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleBlock(m.matchId, m.otherId, m.firstName)
+                      }
+                      className="flex-1 text-sm text-slate-400 hover:text-rose-400 border border-slate-700 rounded-xl py-2"
+                    >
+                      Block
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
