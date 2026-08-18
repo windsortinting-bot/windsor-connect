@@ -3,16 +3,25 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, MessageCircle } from "lucide-react";
+import { Heart, MessageCircle, MapPin } from "lucide-react";
+
+interface MatchItem {
+  matchId: string;
+  otherId: string;
+  firstName: string;
+  age: number | null;
+  neighborhood: string | null;
+  photo: string | null;
+}
 
 export default function MatchesPage() {
   const router = useRouter();
-  const [matches, setMatches] = useState<any[]>([]);
+  const [matches, setMatches] = useState<MatchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadMatches = async () => {
+    const load = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -31,7 +40,7 @@ export default function MatchesPage() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error(error);
+        console.error("Match query error:", error);
         setLoading(false);
         return;
       }
@@ -43,103 +52,66 @@ export default function MatchesPage() {
       }
 
       const seen = new Set<string>();
-      const uniqueMatches: any[] = [];
-
-      for (const match of matchRows) {
-        const otherId =
-          match.user1_id === user.id ? match.user2_id : match.user1_id;
+      const unique: typeof matchRows = [];
+      for (const m of matchRows) {
+        const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
         if (!seen.has(otherId)) {
           seen.add(otherId);
-          uniqueMatches.push(match);
+          unique.push(m);
         }
       }
 
-      const otherIds = uniqueMatches.map((m) =>
+      const otherIds = unique.map((m) =>
         m.user1_id === user.id ? m.user2_id : m.user1_id
       );
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, first_name, age, neighborhood, photo_urls")
         .in("id", otherIds);
 
-      const formatted = await Promise.all(
-        uniqueMatches.map(async (match) => {
-          const otherId =
-            match.user1_id === user.id ? match.user2_id : match.user1_id;
-          const other = profiles?.find((p) => p.id === otherId);
+      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
-          const { data: lastMsg } = await supabase
-            .from("messages")
-            .select("content, created_at, sender_id")
-            .eq("match_id", match.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      const items: MatchItem[] = [];
+      for (const m of unique) {
+        const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
+        const p = profileMap.get(otherId);
+        if (!p) continue;
 
-          // Unread = last message is from them (simple heuristic)
-          const unread =
-            lastMsg && lastMsg.sender_id !== user.id ? true : false;
+        items.push({
+          matchId: m.id,
+          otherId,
+          firstName: p.first_name,
+          age: p.age,
+          neighborhood: p.neighborhood,
+          photo: p.photo_urls?.[0] || null,
+        });
+      }
 
-          return {
-            matchId: match.id,
-            other,
-            lastMessage: lastMsg?.content || null,
-            unread,
-          };
-        })
-      );
-
-      setMatches(formatted.filter((m) => m.other));
+      setMatches(items);
       setLoading(false);
     };
 
-    loadMatches();
+    load();
   }, [router]);
 
-  const handleUnmatch = async (matchId: string) => {
-    if (!confirm("Are you sure you want to unmatch?")) return;
+  const handleUnmatch = async (matchId: string, otherId: string) => {
+    if (!userId) return;
+    if (!confirm("Unmatch this person?")) return;
 
-    const { error } = await supabase.from("matches").delete().eq("id", matchId);
-
-    if (error) {
-      console.error("Unmatch error:", error);
-      alert("Could not unmatch. Please try again.");
-      return;
-    }
-
-    if (userId) {
-      const match = matches.find((m) => m.matchId === matchId);
-      if (match?.other?.id) {
-        await supabase
-          .from("matches")
-          .delete()
-          .or(
-            `and(user1_id.eq.${userId},user2_id.eq.${match.other.id}),and(user1_id.eq.${match.other.id},user2_id.eq.${userId})`
-          );
-      }
-    }
-
+    await supabase.from("matches").delete().eq("id", matchId);
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
 
-  const handleBlockFromMatch = async (otherId: string, matchId: string) => {
+  const handleBlock = async (matchId: string, otherId: string, name: string) => {
     if (!userId) return;
-    if (!confirm("Block this person? They will be removed from your matches."))
-      return;
+    if (!confirm(`Block ${name}?`)) return;
 
     await supabase.from("blocks").insert({
       blocker_id: userId,
       blocked_id: otherId,
     });
-
-    await supabase
-      .from("matches")
-      .delete()
-      .or(
-        `and(user1_id.eq.${userId},user2_id.eq.${otherId}),and(user1_id.eq.${otherId},user2_id.eq.${userId})`
-      );
-
+    await supabase.from("matches").delete().eq("id", matchId);
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
 
@@ -154,14 +126,17 @@ export default function MatchesPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Matches</h1>
+        <h1 className="text-3xl font-bold mb-2">Matches</h1>
+        <p className="text-slate-500 text-sm mb-6">
+          {matches.length} match{matches.length === 1 ? "" : "es"}
+        </p>
 
         {matches.length === 0 ? (
           <div className="text-center py-20">
             <Heart className="w-16 h-16 text-rose-500 mx-auto mb-4" />
             <p className="text-slate-300 text-lg font-medium">No matches yet</p>
             <p className="text-slate-500 text-sm mt-2">
-              Keep swiping — your next match is waiting.
+              Keep swiping — matches will show up here.
             </p>
             <button
               onClick={() => router.push("/swipe")}
@@ -171,81 +146,70 @@ export default function MatchesPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-5">
-            {matches.map((item) => (
-              <div key={item.matchId}>
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-                      <div className="relative w-16 h-16 rounded-full overflow-hidden bg-slate-800">
-                        {item.other.photo_urls?.[0] ? (
-                          <img
-                            src={item.other.photo_urls[0]}
-                            alt={item.other.first_name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Heart className="w-6 h-6 text-slate-600" />
-                          </div>
-                        )}
-                        {item.unread && (
-                          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-rose-500 rounded-full border-2 border-slate-900" />
-                        )}
+          <div className="space-y-3">
+            {matches.map((m) => (
+              <div
+                key={m.matchId}
+                className="bg-slate-900 border border-slate-800 rounded-2xl p-4"
+              >
+                <button
+                  type="button"
+                  onClick={() => router.push(`/chat/${m.matchId}`)}
+                  className="w-full flex items-center gap-3 text-left"
+                >
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800 flex-shrink-0">
+                    {m.photo ? (
+                      <img
+                        src={m.photo}
+                        alt={m.firstName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Heart className="w-7 h-7 text-slate-600" />
                       </div>
-                      <button
-                        onClick={() =>
-                          router.push(`/profile/${item.other.id}`)
-                        }
-                        className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors"
-                      >
-                        View Profile
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={() => router.push(`/chat/${item.matchId}`)}
-                      className="flex-1 flex items-center justify-between gap-3 bg-slate-800/60 hover:bg-slate-800 rounded-xl px-4 py-3 transition-colors text-left"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-semibold text-white truncate flex items-center gap-2">
-                          {item.other.first_name}
-                          {item.other.age ? `, ${item.other.age}` : ""}
-                          {item.unread && (
-                            <span className="text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full">
-                              New
-                            </span>
-                          )}
-                        </p>
-                        <p
-                          className={`text-sm mt-0.5 truncate ${
-                            item.unread
-                              ? "text-white font-medium"
-                              : "text-slate-400"
-                          }`}
-                        >
-                          {item.lastMessage
-                            ? item.lastMessage
-                            : "Click here to chat"}
-                        </p>
-                      </div>
-                      <MessageCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
-                    </button>
+                    )}
                   </div>
-                </div>
 
-                <div className="flex justify-end gap-4 mt-1.5 px-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-white text-lg">
+                      {m.firstName}
+                      {m.age ? `, ${m.age}` : ""}
+                    </p>
+                    {m.neighborhood && (
+                      <div className="flex items-center gap-1 text-rose-400 text-sm mt-0.5">
+                        <MapPin className="w-3.5 h-3.5" />
+                        {m.neighborhood}
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Click here to chat
+                    </p>
+                  </div>
+                </button>
+
+                <div className="flex gap-3 mt-4 pt-3 border-t border-slate-800">
                   <button
-                    onClick={() => handleUnmatch(item.matchId)}
-                    className="text-xs text-slate-500 hover:text-rose-400 transition-colors"
+                    type="button"
+                    onClick={() => router.push(`/profile/${m.otherId}`)}
+                    className="flex-1 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-xl py-2"
+                  >
+                    View profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUnmatch(m.matchId, m.otherId)}
+                    className="flex-1 text-sm text-slate-400 hover:text-rose-400 border border-slate-700 rounded-xl py-2"
                   >
                     Unmatch
                   </button>
                   <button
+                    type="button"
                     onClick={() =>
-                      handleBlockFromMatch(item.other.id, item.matchId)
+                      handleBlock(m.matchId, m.otherId, m.firstName)
                     }
-                    className="text-xs text-slate-500 hover:text-rose-500 transition-colors"
+                    className="flex-1 text-sm text-slate-400 hover:text-rose-400 border border-slate-700 rounded-xl py-2"
                   >
                     Block
                   </button>

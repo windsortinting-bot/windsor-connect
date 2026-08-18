@@ -3,12 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, Flame, MessageCircle, User } from "lucide-react";
+import { Heart, Flame, MessageCircle, User, Users } from "lucide-react";
 
 export default function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
   const [likesCount, setLikesCount] = useState(0);
+  const [matchesCount, setMatchesCount] = useState(0);
   const [messagesCount, setMessagesCount] = useState(0);
 
   useEffect(() => {
@@ -40,12 +41,24 @@ export default function BottomNav() {
         setLikesCount(0);
       }
 
-      // Unread-ish messages: last message from the other person
+      // Matches count
       const { data: matchRows } = await supabase
         .from("matches")
         .select("id, user1_id, user2_id")
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
+      if (matchRows) {
+        const seen = new Set<string>();
+        for (const m of matchRows) {
+          const other = m.user1_id === user.id ? m.user2_id : m.user1_id;
+          seen.add(other);
+        }
+        setMatchesCount(seen.size);
+      } else {
+        setMatchesCount(0);
+      }
+
+      // Messages badge (last message from the other person)
       if (!matchRows || matchRows.length === 0) {
         setMessagesCount(0);
         return;
@@ -55,7 +68,7 @@ export default function BottomNav() {
       for (const m of matchRows) {
         const { data: lastMsg } = await supabase
           .from("messages")
-          .select("sender_id, created_at")
+          .select("sender_id")
           .eq("match_id", m.id)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -85,6 +98,7 @@ export default function BottomNav() {
   const tabs = [
     { href: "/swipe", label: "Swipe", icon: Flame, badge: 0 },
     { href: "/likes", label: "Likes", icon: Heart, badge: likesCount },
+    { href: "/matches", label: "Matches", icon: Users, badge: matchesCount },
     {
       href: "/messages",
       label: "Messages",
@@ -96,7 +110,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-950/95 backdrop-blur-md">
-      <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-2">
+      <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-1">
         {tabs.map((tab) => {
           const active =
             pathname === tab.href || pathname?.startsWith(tab.href + "/");
@@ -106,23 +120,23 @@ export default function BottomNav() {
             <button
               key={tab.href}
               onClick={() => router.push(tab.href)}
-              className={`relative flex flex-col items-center justify-center gap-0.5 w-16 h-full transition-colors ${
+              className={`relative flex flex-col items-center justify-center gap-0.5 w-14 h-full transition-colors ${
                 active ? "text-rose-400" : "text-slate-500 hover:text-slate-300"
               }`}
             >
               <div className="relative">
                 <Icon
-                  className={`w-6 h-6 ${
+                  className={`w-5 h-5 ${
                     active && tab.href === "/likes" ? "fill-rose-400" : ""
                   }`}
                 />
                 {tab.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
                     {tab.badge > 9 ? "9+" : tab.badge}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <span className="text-[9px] font-medium">{tab.label}</span>
             </button>
           );
         })}

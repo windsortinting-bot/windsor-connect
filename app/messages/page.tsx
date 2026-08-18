@@ -21,7 +21,6 @@ export default function MessagesPage() {
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -33,8 +32,6 @@ export default function MessagesPage() {
         router.push("/auth");
         return;
       }
-
-      setUserId(user.id);
 
       const { data: matchRows, error } = await supabase
         .from("matches")
@@ -54,7 +51,6 @@ export default function MessagesPage() {
         return;
       }
 
-      // Deduplicate by other user
       const seen = new Set<string>();
       const uniqueMatches: typeof matchRows = [];
       for (const m of matchRows) {
@@ -75,7 +71,6 @@ export default function MessagesPage() {
         .in("id", otherIds);
 
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-
       const items: Conversation[] = [];
 
       for (const m of uniqueMatches) {
@@ -92,7 +87,6 @@ export default function MessagesPage() {
           .maybeSingle();
 
         const unread = !!(lastMsg && lastMsg.sender_id !== user.id);
-        const isNewMatch = !lastMsg;
 
         items.push({
           matchId: m.id,
@@ -103,11 +97,10 @@ export default function MessagesPage() {
           lastMessage: lastMsg?.content || null,
           lastMessageAt: lastMsg?.created_at || m.created_at,
           unread,
-          isNewMatch,
+          isNewMatch: !lastMsg,
         });
       }
 
-      // Sort: unread first, then by last activity
       items.sort((a, b) => {
         if (a.unread && !b.unread) return -1;
         if (!a.unread && b.unread) return 1;
@@ -122,10 +115,6 @@ export default function MessagesPage() {
 
     load();
   }, [router]);
-
-  const openChat = (matchId: string) => {
-    router.push(`/chat/${matchId}`);
-  };
 
   if (loading) {
     return (
@@ -143,7 +132,7 @@ export default function MessagesPage() {
       <div className="max-w-md mx-auto">
         <h1 className="text-3xl font-bold mb-2">Messages</h1>
         <p className="text-slate-500 text-sm mb-6">
-          Chat with your matches in Windsor
+          Chat with your matches
         </p>
 
         {conversations.length === 0 ? (
@@ -151,7 +140,7 @@ export default function MessagesPage() {
             <MessageCircle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
             <p className="text-slate-300 text-lg font-medium">No messages yet</p>
             <p className="text-slate-500 text-sm mt-2">
-              When you match with someone, your conversation will show up here.
+              When you match, conversations will show up here.
             </p>
             <button
               onClick={() => router.push("/swipe")}
@@ -171,7 +160,7 @@ export default function MessagesPage() {
                   {newMatches.map((c) => (
                     <button
                       key={c.matchId}
-                      onClick={() => openChat(c.matchId)}
+                      onClick={() => router.push(`/chat/${c.matchId}`)}
                       className="flex flex-col items-center gap-2 flex-shrink-0"
                     >
                       <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800 ring-2 ring-rose-500">
@@ -205,7 +194,7 @@ export default function MessagesPage() {
                   {activeChats.map((c) => (
                     <button
                       key={c.matchId}
-                      onClick={() => openChat(c.matchId)}
+                      onClick={() => router.push(`/chat/${c.matchId}`)}
                       className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-2xl p-3 text-left transition-colors"
                     >
                       <div className="relative w-14 h-14 rounded-full overflow-hidden bg-slate-800 flex-shrink-0">
@@ -255,12 +244,6 @@ export default function MessagesPage() {
                   ))}
                 </div>
               </div>
-            )}
-
-            {activeChats.length === 0 && newMatches.length > 0 && (
-              <p className="text-center text-slate-500 text-sm">
-                Tap a new match above to start chatting
-              </p>
             )}
           </div>
         )}
