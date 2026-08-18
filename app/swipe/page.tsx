@@ -8,7 +8,15 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, X, MapPin, Clock, RotateCcw } from "lucide-react";
+import {
+  Heart,
+  X,
+  MapPin,
+  Clock,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import MatchModal from "../components/MatchModal";
 
 const DAILY_LIMIT = 8;
@@ -34,6 +42,8 @@ interface Profile {
   prompt_2_answer?: string | null;
   prompt_3?: string | null;
   prompt_3_answer?: string | null;
+  is_banned?: boolean | null;
+  is_paused?: boolean | null;
 }
 
 function kidsStatusLabel(status?: string | null) {
@@ -77,46 +87,49 @@ export default function SwipePage() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (user) {
-        setUserId(user.id);
-
-        await supabase.rpc("reset_daily_swipes_if_needed", {
-          p_user_id: user.id,
-        });
-
-        const { data: myProfile } = await supabase
-          .from("profiles")
-          .select(
-            "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender, is_paused, is_banned"
-          )
-          .eq("id", user.id)
-          .single();
-
-        if (myProfile?.is_banned) {
-          setLoading(false);
-          return;
-        }
-
-        setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
-        setIAmPaused(myProfile?.is_paused ?? false);
-
-        const used = myProfile?.daily_swipes_used ?? 0;
-        const left = Math.max(0, DAILY_LIMIT - used);
-        setSwipesLeft(left);
-
-        if (myProfile?.is_paused) {
-          setLoading(false);
-          return;
-        }
-
-        if (left <= 0) {
-          setLimitReached(true);
-          setLoading(false);
-          return;
-        }
-
-        await fetchProfiles(user.id, left, myProfile);
+      if (!user) {
+        setLoading(false);
+        return;
       }
+
+      setUserId(user.id);
+
+      await supabase.rpc("reset_daily_swipes_if_needed", {
+        p_user_id: user.id,
+      });
+
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select(
+          "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender, is_paused, is_banned"
+        )
+        .eq("id", user.id)
+        .single();
+
+      if (myProfile?.is_banned) {
+        setLoading(false);
+        return;
+      }
+
+      setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
+      setIAmPaused(myProfile?.is_paused ?? false);
+
+      const used = myProfile?.daily_swipes_used ?? 0;
+      const left = Math.max(0, DAILY_LIMIT - used);
+      setSwipesLeft(left);
+
+      if (myProfile?.is_paused) {
+        setLoading(false);
+        return;
+      }
+
+      if (left <= 0) {
+        setLimitReached(true);
+        setLoading(false);
+        return;
+      }
+
+      await fetchProfiles(user.id, left, myProfile);
     };
 
     getUser();
@@ -153,8 +166,6 @@ export default function SwipePage() {
       .from("profiles")
       .select("*")
       .eq("is_onboarded", true)
-      .or("is_paused.is.null,is_paused.eq.false")
-      .or("is_banned.is.null,is_banned.eq.false")
       .order("created_at", { ascending: false })
       .limit(40);
 
@@ -489,42 +500,45 @@ export default function SwipePage() {
             style={{ x, rotate }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.9}
             onDragEnd={(_, info) => {
               if (info.offset.x > 100) handleSwipe("like");
               else if (info.offset.x < -100) handleSwipe("pass");
               else x.set(0);
             }}
-            className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing"
+            className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing touch-pan-y"
           >
             <motion.div
               style={{ opacity: likeOpacity }}
-              className="absolute top-6 left-6 z-20 border-4 border-emerald-400 text-emerald-400 font-bold text-2xl px-4 py-1 rounded-lg rotate-[-20deg]"
+              className="absolute top-6 left-6 z-20 border-4 border-emerald-400 text-emerald-400 font-bold text-2xl px-4 py-1 rounded-lg rotate-[-20deg] pointer-events-none"
             >
               LIKE
             </motion.div>
             <motion.div
               style={{ opacity: nopeOpacity }}
-              className="absolute top-6 right-6 z-20 border-4 border-rose-500 text-rose-500 font-bold text-2xl px-4 py-1 rounded-lg rotate-[20deg]"
+              className="absolute top-6 right-6 z-20 border-4 border-rose-500 text-rose-500 font-bold text-2xl px-4 py-1 rounded-lg rotate-[20deg] pointer-events-none"
             >
               NOPE
             </motion.div>
 
-            <div className="relative w-full h-80 bg-slate-800">
+            {/* Photo — drag works on this area */}
+            <div className="relative w-full h-80 bg-slate-800 select-none">
               {photos.length > 0 ? (
                 <img
                   src={photos[photoIndex]}
                   alt={currentProfile.first_name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover pointer-events-none"
+                  draggable={false}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
+                <div className="w-full h-full flex items-center justify-center pointer-events-none">
                   <Heart className="w-12 h-12 text-slate-600" />
                 </div>
               )}
 
               {photos.length > 1 && (
                 <>
-                  <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                  <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
                     {photos.map((_, i) => (
                       <div
                         key={i}
@@ -534,24 +548,32 @@ export default function SwipePage() {
                       />
                     ))}
                   </div>
+
+                  {/* Small chevrons only — do not block card drag */}
                   <button
                     type="button"
-                    className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white"
                     onClick={(e) => {
                       e.stopPropagation();
                       setPhotoIndex((p) => Math.max(0, p - 1));
                     }}
-                  />
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
                   <button
                     type="button"
-                    className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white"
                     onClick={(e) => {
                       e.stopPropagation();
                       setPhotoIndex((p) =>
                         Math.min(photos.length - 1, p + 1)
                       );
                     }}
-                  />
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </>
               )}
             </div>

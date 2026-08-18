@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Heart, Users, User } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { Heart, Flame, MessageCircle, User } from "lucide-react";
 
 export default function BottomNav() {
+  const router = useRouter();
   const pathname = usePathname();
   const [likesCount, setLikesCount] = useState(0);
   const [matchesCount, setMatchesCount] = useState(0);
@@ -18,44 +18,38 @@ export default function BottomNav() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // ===== LIKES COUNT =====
       const { data: incoming } = await supabase
         .from("swipes")
         .select("swiper_id")
         .eq("target_id", user.id)
         .eq("action", "like");
 
-      if (incoming && incoming.length > 0) {
-        const { data: yourSwipes } = await supabase
+      const likerIds = (incoming ?? []).map((s) => s.swiper_id);
+
+      if (likerIds.length > 0) {
+        const { data: mySwipes } = await supabase
           .from("swipes")
           .select("target_id")
           .eq("swiper_id", user.id);
 
-        const alreadySwiped = new Set(
-          (yourSwipes ?? []).map((s) => s.target_id)
-        );
-        const pending = incoming.filter(
-          (s) => !alreadySwiped.has(s.swiper_id)
-        );
+        const already = new Set((mySwipes ?? []).map((s) => s.target_id));
+        const pending = likerIds.filter((id) => !already.has(id));
         setLikesCount(pending.length);
       } else {
         setLikesCount(0);
       }
 
-      // ===== MATCHES COUNT =====
       const { data: matchRows } = await supabase
         .from("matches")
         .select("id, user1_id, user2_id")
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
-      if (matchRows && matchRows.length > 0) {
-        // Deduplicate people
+      if (matchRows) {
         const seen = new Set<string>();
-        matchRows.forEach((m) => {
-          const otherId =
-            m.user1_id === user.id ? m.user2_id : m.user1_id;
-          seen.add(otherId);
-        });
+        for (const m of matchRows) {
+          const other = m.user1_id === user.id ? m.user2_id : m.user1_id;
+          seen.add(other);
+        }
         setMatchesCount(seen.size);
       } else {
         setMatchesCount(0);
@@ -63,51 +57,75 @@ export default function BottomNav() {
     };
 
     loadCounts();
-
-    // Refresh every 15 seconds
     const interval = setInterval(loadCounts, 15000);
     return () => clearInterval(interval);
   }, [pathname]);
 
-  // Hide nav on landing and auth pages
-  if (pathname === "/" || pathname.startsWith("/auth")) return null;
+  if (
+    pathname === "/" ||
+    pathname?.startsWith("/auth") ||
+    pathname?.startsWith("/admin")
+  ) {
+    return null;
+  }
 
-  const links = [
-    { href: "/swipe", icon: Heart, label: "Swipe" },
-    { href: "/likes", icon: Heart, label: "Likes", badge: likesCount },
-    { href: "/matches", icon: Users, label: "Matches", badge: matchesCount },
-    { href: "/profile", icon: User, label: "Profile" },
+  const tabs = [
+    {
+      href: "/swipe",
+      label: "Swipe",
+      icon: Flame,
+      badge: 0,
+    },
+    {
+      href: "/likes",
+      label: "Likes",
+      icon: Heart,
+      badge: likesCount,
+    },
+    {
+      href: "/matches",
+      label: "Matches",
+      icon: MessageCircle,
+      badge: matchesCount,
+    },
+    {
+      href: "/profile",
+      label: "Profile",
+      icon: User,
+      badge: 0,
+    },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/95 border-t border-slate-800 backdrop-blur-md z-40">
-      <div className="max-w-md mx-auto flex justify-around items-center h-16">
-        {links.map((link) => {
-          const isActive = pathname.startsWith(link.href);
-          const Icon = link.icon;
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-950/95 backdrop-blur-md">
+      <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-2">
+        {tabs.map((tab) => {
+          const active =
+            pathname === tab.href || pathname?.startsWith(tab.href + "/");
+          const Icon = tab.icon;
 
           return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`relative flex flex-col items-center gap-0.5 text-xs ${
-                isActive
-                  ? "text-rose-500"
-                  : "text-slate-500 hover:text-slate-300"
+            <button
+              key={tab.href}
+              onClick={() => router.push(tab.href)}
+              className={`relative flex flex-col items-center justify-center gap-0.5 w-16 h-full transition-colors ${
+                active ? "text-rose-400" : "text-slate-500 hover:text-slate-300"
               }`}
             >
               <div className="relative">
                 <Icon
-                  className={`w-5 h-5 ${isActive ? "fill-rose-500" : ""}`}
+                  className={`w-6 h-6 ${
+                    active && tab.href === "/likes" ? "fill-rose-400" : ""
+                  }`}
                 />
-                {link.badge !== undefined && link.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                    {link.badge > 9 ? "9+" : link.badge}
+                {tab.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {tab.badge > 9 ? "9+" : tab.badge}
                   </span>
                 )}
               </div>
-              <span>{link.label}</span>
-            </Link>
+              <span className="text-[10px] font-medium">{tab.label}</span>
+            </button>
           );
         })}
       </div>
