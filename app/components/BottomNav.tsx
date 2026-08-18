@@ -9,7 +9,7 @@ export default function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
   const [likesCount, setLikesCount] = useState(0);
-  const [matchesCount, setMatchesCount] = useState(0);
+  const [messagesCount, setMessagesCount] = useState(0);
 
   useEffect(() => {
     const loadCounts = async () => {
@@ -18,6 +18,7 @@ export default function BottomNav() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Pending likes
       const { data: incoming } = await supabase
         .from("swipes")
         .select("swiper_id")
@@ -39,21 +40,32 @@ export default function BottomNav() {
         setLikesCount(0);
       }
 
+      // Unread-ish messages: last message from the other person
       const { data: matchRows } = await supabase
         .from("matches")
         .select("id, user1_id, user2_id")
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
-      if (matchRows) {
-        const seen = new Set<string>();
-        for (const m of matchRows) {
-          const other = m.user1_id === user.id ? m.user2_id : m.user1_id;
-          seen.add(other);
-        }
-        setMatchesCount(seen.size);
-      } else {
-        setMatchesCount(0);
+      if (!matchRows || matchRows.length === 0) {
+        setMessagesCount(0);
+        return;
       }
+
+      let unread = 0;
+      for (const m of matchRows) {
+        const { data: lastMsg } = await supabase
+          .from("messages")
+          .select("sender_id, created_at")
+          .eq("match_id", m.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastMsg && lastMsg.sender_id !== user.id) {
+          unread += 1;
+        }
+      }
+      setMessagesCount(unread);
     };
 
     loadCounts();
@@ -64,36 +76,22 @@ export default function BottomNav() {
   if (
     pathname === "/" ||
     pathname?.startsWith("/auth") ||
-    pathname?.startsWith("/admin")
+    pathname?.startsWith("/admin") ||
+    pathname?.startsWith("/chat")
   ) {
     return null;
   }
 
   const tabs = [
+    { href: "/swipe", label: "Swipe", icon: Flame, badge: 0 },
+    { href: "/likes", label: "Likes", icon: Heart, badge: likesCount },
     {
-      href: "/swipe",
-      label: "Swipe",
-      icon: Flame,
-      badge: 0,
-    },
-    {
-      href: "/likes",
-      label: "Likes",
-      icon: Heart,
-      badge: likesCount,
-    },
-    {
-      href: "/matches",
-      label: "Matches",
+      href: "/messages",
+      label: "Messages",
       icon: MessageCircle,
-      badge: matchesCount,
+      badge: messagesCount,
     },
-    {
-      href: "/profile",
-      label: "Profile",
-      icon: User,
-      badge: 0,
-    },
+    { href: "/profile", label: "Profile", icon: User, badge: 0 },
   ];
 
   return (

@@ -49,10 +49,12 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("Chat");
+  const [otherPhoto, setOtherPhoto] = useState<string | null>(null);
   const [canSend, setCanSend] = useState(true);
   const [limitMessage, setLimitMessage] = useState("");
   const [matchExpired, setMatchExpired] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<any>(null);
   const channelRef = useRef<any>(null);
@@ -81,6 +83,19 @@ export default function ChatPage() {
         return;
       }
 
+      // Mark as read for current user
+      if (match.user1_id === user.id) {
+        await supabase
+          .from("matches")
+          .update({ user1_last_read_at: new Date().toISOString() })
+          .eq("id", matchId);
+      } else {
+        await supabase
+          .from("matches")
+          .update({ user2_last_read_at: new Date().toISOString() })
+          .eq("id", matchId);
+      }
+
       if (match.expires_at && new Date(match.expires_at) < new Date()) {
         const { count } = await supabase
           .from("messages")
@@ -99,11 +114,12 @@ export default function ChatPage() {
 
       const { data: otherProfile } = await supabase
         .from("profiles")
-        .select("first_name")
+        .select("first_name, photo_urls")
         .eq("id", oid)
         .single();
 
       setOtherName(otherProfile?.first_name || "Chat");
+      setOtherPhoto(otherProfile?.photo_urls?.[0] || null);
 
       const { data: msgs } = await supabase
         .from("messages")
@@ -199,8 +215,10 @@ export default function ChatPage() {
   };
 
   const sendMessage = async (content: string) => {
-    if (!content.trim() || !userId || !canSend || matchExpired) return;
+    if (!content.trim() || !userId || !canSend || matchExpired || sending)
+      return;
 
+    setSending(true);
     setNewMessage("");
 
     const { data, error } = await supabase
@@ -215,7 +233,8 @@ export default function ChatPage() {
 
     if (error) {
       console.error(error);
-      alert("Could not send message.");
+      alert("Could not send message. Check your connection and try again.");
+      setSending(false);
       return;
     }
 
@@ -229,11 +248,14 @@ export default function ChatPage() {
 
     if (data) {
       setMessages((prev) => {
+        if (prev.some((m) => m.id === data.id)) return prev;
         const next = [...prev, data];
         checkSendLimit(next, userId);
         return next;
       });
     }
+
+    setSending(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -258,10 +280,10 @@ export default function ChatPage() {
           Neither of you started a conversation in time.
         </p>
         <button
-          onClick={() => router.push("/matches")}
+          onClick={() => router.push("/messages")}
           className="mt-6 bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-xl text-sm"
         >
-          Back to Matches
+          Back to Messages
         </button>
       </div>
     );
@@ -273,11 +295,20 @@ export default function ChatPage() {
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
       <div className="border-b border-slate-800 px-4 py-3 flex items-center gap-3 sticky top-0 bg-slate-950/95 backdrop-blur z-10">
         <button
-          onClick={() => router.push("/matches")}
+          onClick={() => router.push("/messages")}
           className="text-slate-400 hover:text-white"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
+        {otherPhoto && (
+          <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-800">
+            <img
+              src={otherPhoto}
+              alt={otherName}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
         <h1 className="font-semibold text-lg">{otherName}</h1>
       </div>
 
@@ -293,7 +324,7 @@ export default function ChatPage() {
                   key={line}
                   type="button"
                   onClick={() => sendMessage(line)}
-                  disabled={!canSend}
+                  disabled={!canSend || sending}
                   className="w-full text-left text-sm bg-slate-900 border border-slate-800 hover:border-rose-500/40 hover:bg-slate-800 text-slate-300 rounded-xl px-4 py-3 transition-colors"
                 >
                   {line}
@@ -326,7 +357,7 @@ export default function ChatPage() {
                       : "bg-slate-800 text-slate-100 rounded-bl-md"
                   }`}
                 >
-                  <p>{msg.content}</p>
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                   <p
                     className={`text-[10px] mt-1 ${
                       isMe ? "text-rose-100/70" : "text-slate-500"
@@ -375,7 +406,7 @@ export default function ChatPage() {
         />
         <button
           type="submit"
-          disabled={!canSend || !newMessage.trim()}
+          disabled={!canSend || !newMessage.trim() || sending}
           className="bg-rose-500 hover:bg-rose-600 disabled:opacity-40 text-white rounded-xl px-4 flex items-center justify-center"
         >
           <Send className="w-5 h-5" />
