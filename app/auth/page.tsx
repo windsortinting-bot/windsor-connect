@@ -30,7 +30,9 @@ export default function AuthPage() {
 
   const validateInviteCode = async (raw: string) => {
     const code = raw.trim().toUpperCase();
-    if (!code) return { ok: false as const, error: "Invite code required for signup" };
+    if (!code) {
+      return { ok: false as const, error: "Invite code required for signup" };
+    }
 
     const { data, error } = await supabase
       .from("invite_codes")
@@ -79,17 +81,19 @@ export default function AuthPage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("is_onboarded")
+        .select("is_onboarded, seen_welcome")
         .eq("id", userId)
         .single();
 
       setStatus("success");
       setMessage("Logged in successfully!");
 
-      if (profile?.is_onboarded) {
-        router.push("/swipe");
-      } else {
+      if (!profile?.is_onboarded) {
         router.push("/onboarding");
+      } else if (!profile?.seen_welcome) {
+        router.push("/welcome");
+      } else {
+        router.push("/swipe");
       }
     } else {
       const check = await validateInviteCode(inviteCode);
@@ -126,6 +130,7 @@ export default function AuthPage() {
           first_name: firstName.trim(),
           city: "Windsor",
           is_onboarded: false,
+          seen_welcome: false,
           invite_code: code,
         });
 

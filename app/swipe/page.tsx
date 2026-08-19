@@ -8,6 +8,7 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import { supabase } from "../../lib/supabaseClient";
+import { profileCompleteness } from "../../lib/profileCompleteness";
 import {
   Heart,
   X,
@@ -78,6 +79,10 @@ export default function SwipePage() {
   const [lastPassed, setLastPassed] = useState<Profile | null>(null);
   const [canSecondLook, setCanSecondLook] = useState(false);
   const [superLikesLeft, setSuperLikesLeft] = useState(SUPER_LIKE_LIMIT);
+  const [completeness, setCompleteness] = useState<{
+    score: number;
+    isLow: boolean;
+  } | null>(null);
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -106,12 +111,9 @@ export default function SwipePage() {
         p_user_id: user.id,
       });
 
-      // Reset super likes daily
       const { data: myProfile } = await supabase
         .from("profiles")
-        .select(
-          "photo_urls, daily_swipes_used, age, min_age_pref, max_age_pref, target_gender, is_paused, is_banned, super_likes_used, super_likes_reset_at"
-        )
+        .select("*")
         .eq("id", user.id)
         .single();
 
@@ -120,16 +122,17 @@ export default function SwipePage() {
         return;
       }
 
-      // Daily super like reset
+      if (myProfile) {
+        const c = profileCompleteness(myProfile);
+        setCompleteness({ score: c.score, isLow: c.isLow });
+      }
+
       const resetAt = myProfile?.super_likes_reset_at
         ? new Date(myProfile.super_likes_reset_at)
         : null;
       const now = new Date();
       let superUsed = myProfile?.super_likes_used ?? 0;
-      if (
-        !resetAt ||
-        resetAt.toDateString() !== now.toDateString()
-      ) {
+      if (!resetAt || resetAt.toDateString() !== now.toDateString()) {
         superUsed = 0;
         await supabase
           .from("profiles")
@@ -257,10 +260,7 @@ export default function SwipePage() {
     if (left <= 0) setLimitReached(true);
   };
 
-  const handleSwipe = async (
-    action: "like" | "pass",
-    isSuperLike = false
-  ) => {
+  const handleSwipe = async (action: "like" | "pass", isSuperLike = false) => {
     if (!userId || currentIndex >= profiles.length || limitReached) return;
     if (isSuperLike && superLikesLeft <= 0) return;
 
@@ -537,6 +537,21 @@ export default function SwipePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 pb-28">
+      {completeness?.isLow && (
+        <button
+          type="button"
+          onClick={() => (window.location.href = "/onboarding")}
+          className="w-full max-w-sm mb-4 text-left bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3"
+        >
+          <p className="text-amber-300 text-sm font-medium">
+            Profile {completeness.score}% complete
+          </p>
+          <p className="text-amber-200/70 text-xs mt-1">
+            Add photos or a bio to get better matches — tap to edit
+          </p>
+        </button>
+      )}
+
       <div className="w-full max-w-sm mb-4 flex justify-between items-center text-sm text-slate-400">
         <span>Today’s batch</span>
         <div className="flex items-center gap-3">

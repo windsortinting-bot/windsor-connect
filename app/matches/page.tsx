@@ -139,7 +139,9 @@ export default function MatchesPage() {
 
   const handleUnmatch = async (matchId: string) => {
     if (!userId) return;
-    if (!confirm("Unmatch this person?")) return;
+    if (!confirm("Unmatch this person? Chat history will be removed.")) return;
+
+    await supabase.from("messages").delete().eq("match_id", matchId);
     await supabase.from("matches").delete().eq("id", matchId);
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
@@ -151,10 +153,12 @@ export default function MatchesPage() {
   ) => {
     if (!userId) return;
     if (!confirm(`Block ${name}?`)) return;
+
     await supabase.from("blocks").insert({
       blocker_id: userId,
       blocked_id: otherId,
     });
+    await supabase.from("messages").delete().eq("match_id", matchId);
     await supabase.from("matches").delete().eq("id", matchId);
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };

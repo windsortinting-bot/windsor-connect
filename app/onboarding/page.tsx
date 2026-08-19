@@ -193,7 +193,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/swipe");
+    router.push("/welcome");
   };
 
   if (loading) {
@@ -343,7 +343,7 @@ export default function OnboardingPage() {
             <input
               value={height}
               onChange={(e) => setHeight(e.target.value)}
-              placeholder="e.g. 5'10&quot;"
+              placeholder='e.g. 5&apos;10"'
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             />
           </div>
@@ -387,9 +387,7 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 block mb-2">
-              Photos (up to 3)
-            </label>
+            <label className="text-sm text-slate-400 block mb-2">Photos (up to 3)</label>
             <div className="flex gap-2 mb-2 flex-wrap">
               {photos.map((url) => (
                 <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden">
@@ -467,7 +465,7 @@ export default function OnboardingPage() {
             disabled={saving}
             className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 disabled:opacity-60 text-white font-semibold py-3 rounded-xl"
           >
-            {saving ? "Saving..." : "Finish & Start Swiping"}
+            {saving ? "Saving..." : "Finish & Continue"}
           </button>
         </form>
       </div>

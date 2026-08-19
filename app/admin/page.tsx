@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Flag,
   Ban,
+  Ticket,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
@@ -153,6 +154,14 @@ export default function AdminDashboardPage() {
           className="w-full bg-slate-900 border border-amber-500/30 text-amber-400 hover:bg-slate-800 rounded-xl py-3 text-sm"
         >
           Open reports queue
+        </button>
+
+        <button
+          onClick={() => router.push("/admin/invites")}
+          className="w-full mt-3 bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-xl py-3 text-sm flex items-center justify-center gap-2"
+        >
+          <Ticket className="w-4 h-4 text-rose-400" />
+          Invite codes
         </button>
       </div>
     </div>
