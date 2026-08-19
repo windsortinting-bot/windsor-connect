@@ -1,46 +1,43 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import {
   ArrowLeft,
+  Ban,
+  LogOut,
   Pause,
   Play,
-  LogOut,
-  Trash2,
   Shield,
-  Share2,
-  Bell,
-  Ban,
-  SlidersHorizontal,
+  Trash2,
+  User,
 } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+
   const [isPaused, setIsPaused] = useState(false);
   const [notifyMatches, setNotifyMatches] = useState(true);
   const [notifyMessages, setNotifyMessages] = useState(true);
   const [notifyLikes, setNotifyLikes] = useState(true);
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const load = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
         router.push("/auth");
         return;
       }
-
       setUserId(user.id);
 
-      const { data: profile } = await supabase
+      const { data: p } = await supabase
         .from("profiles")
         .select(
           "is_paused, notify_matches, notify_messages, notify_likes"
@@ -48,53 +45,34 @@ export default function SettingsPage() {
         .eq("id", user.id)
         .single();
 
-      if (profile) {
-        setIsPaused(profile.is_paused ?? false);
-        setNotifyMatches(profile.notify_matches ?? true);
-        setNotifyMessages(profile.notify_messages ?? true);
-        setNotifyLikes(profile.notify_likes ?? true);
+      if (p) {
+        setIsPaused(!!p.is_paused);
+        setNotifyMatches(p.notify_matches ?? true);
+        setNotifyMessages(p.notify_messages ?? true);
+        setNotifyLikes(p.notify_likes ?? true);
       }
-
-      await supabase
-        .from("profiles")
-        .update({ last_active_at: new Date().toISOString() })
-        .eq("id", user.id);
-
       setLoading(false);
     };
-
     load();
   }, [router]);
 
-  const togglePause = async () => {
+  const savePrefs = async (patch: Record<string, boolean>) => {
     if (!userId) return;
     setSaving(true);
-    const next = !isPaused;
+    setMessage("");
     const { error } = await supabase
       .from("profiles")
-      .update({ is_paused: next })
+      .update(patch)
       .eq("id", userId);
-
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setIsPaused(next);
-      setMessage(
-        next ? "Profile paused — you’re hidden." : "Profile is live again."
-      );
-    }
+    if (error) setMessage(error.message);
+    else setMessage("Saved");
     setSaving(false);
   };
 
-  const saveNotify = async (
-    field: "notify_matches" | "notify_messages" | "notify_likes",
-    value: boolean
-  ) => {
-    if (!userId) return;
-    await supabase
-      .from("profiles")
-      .update({ [field]: value })
-      .eq("id", userId);
+  const togglePause = async () => {
+    const next = !isPaused;
+    setIsPaused(next);
+    await savePrefs({ is_paused: next });
   };
 
   const handleLogout = async () => {
@@ -103,30 +81,25 @@ export default function SettingsPage() {
   };
 
   const handleDelete = async () => {
-    if (!userId) return;
-    const ok = confirm(
-      "Delete your account permanently? This cannot be undone."
-    );
-    if (!ok) return;
-
-    const confirmText = prompt("Type DELETE to confirm:");
-    if (confirmText !== "DELETE") {
-      alert("Cancelled.");
+    if (
+      !confirm(
+        "Delete your Windsor Connect account and all app data? This cannot be undone."
+      )
+    ) {
+      return;
+    }
+    if (!confirm("Type OK in your head — last chance. Delete forever?")) {
       return;
     }
 
-    await supabase.from("messages").delete().eq("sender_id", userId);
-    await supabase.from("swipes").delete().eq("swiper_id", userId);
-    await supabase.from("swipes").delete().eq("target_id", userId);
-    await supabase
-      .from("matches")
-      .delete()
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
-    await supabase
-      .from("blocks")
-      .delete()
-      .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
-    await supabase.from("profiles").delete().eq("id", userId);
+    setSaving(true);
+    const { error } = await supabase.rpc("delete_my_account");
+    if (error) {
+      setMessage(error.message);
+      setSaving(false);
+      return;
+    }
+
     await supabase.auth.signOut();
     router.push("/");
   };
@@ -143,17 +116,15 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
-          onClick={() => router.push("/profile")}
+          onClick={() => router.back()}
           className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to profile
+          Back
         </button>
 
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
-        <p className="text-slate-500 text-sm mb-8">
-          Control your Windsor Connect experience
-        </p>
+        <p className="text-slate-500 text-sm mb-8">Account & privacy</p>
 
         {message && (
           <p className="mb-4 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
@@ -162,116 +133,106 @@ export default function SettingsPage() {
         )}
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               {isPaused ? (
-                <Pause className="w-5 h-5 text-amber-400 mt-0.5" />
+                <Pause className="w-5 h-5 text-amber-400" />
               ) : (
-                <Play className="w-5 h-5 text-emerald-400 mt-0.5" />
+                <Play className="w-5 h-5 text-emerald-400" />
               )}
               <div>
-                <p className="font-semibold">
-                  {isPaused ? "Profile paused" : "Profile active"}
-                </p>
-                <p className="text-sm text-slate-500 mt-1">
-                  {isPaused
-                    ? "You’re hidden from swipe and likes."
-                    : "Others can see and match with you."}
+                <p className="font-medium">Pause profile</p>
+                <p className="text-xs text-slate-500">
+                  Hide from discovery without deleting
                 </p>
               </div>
             </div>
             <button
               onClick={togglePause}
               disabled={saving}
-              className={`px-4 py-2 rounded-xl text-sm font-medium ${
+              className={`px-3 py-1.5 rounded-full text-sm border ${
                 isPaused
-                  ? "bg-emerald-500 hover:bg-emerald-600 text-white"
-                  : "bg-slate-800 hover:bg-slate-700 text-white"
+                  ? "border-amber-500/40 text-amber-300"
+                  : "border-slate-600 text-slate-300"
               }`}
             >
-              {isPaused ? "Unpause" : "Pause"}
+              {isPaused ? "Paused" : "Active"}
             </button>
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Bell className="w-5 h-5 text-rose-400" />
-            <p className="font-semibold">Notifications</p>
-          </div>
-
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4 space-y-4">
+          <p className="text-sm text-slate-400">Notification preferences</p>
           {[
             {
               label: "New matches",
               value: notifyMatches,
               set: setNotifyMatches,
-              field: "notify_matches" as const,
+              key: "notify_matches",
             },
             {
-              label: "New messages",
+              label: "Messages",
               value: notifyMessages,
               set: setNotifyMessages,
-              field: "notify_messages" as const,
+              key: "notify_messages",
             },
             {
-              label: "New likes",
+              label: "Likes",
               value: notifyLikes,
               set: setNotifyLikes,
-              field: "notify_likes" as const,
+              key: "notify_likes",
             },
-          ].map((item) => (
-            <label
-              key={item.field}
-              className="flex items-center justify-between py-3 border-t border-slate-800 first:border-0"
-            >
-              <span className="text-sm text-slate-300">{item.label}</span>
-              <input
-                type="checkbox"
-                checked={item.value}
-                onChange={async (e) => {
-                  item.set(e.target.checked);
-                  await saveNotify(item.field, e.target.checked);
+          ].map((row) => (
+            <div key={row.key} className="flex items-center justify-between">
+              <span className="text-sm text-slate-200">{row.label}</span>
+              <button
+                onClick={async () => {
+                  const next = !row.value;
+                  row.set(next);
+                  await savePrefs({ [row.key]: next });
                 }}
-                className="w-5 h-5 accent-rose-500"
-              />
-            </label>
+                className={`w-12 h-7 rounded-full relative transition-colors ${
+                  row.value ? "bg-rose-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-6 h-6 rounded-full bg-white transition-all ${
+                    row.value ? "left-5" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </div>
           ))}
         </div>
 
-        <div className="space-y-2 mb-6">
+        <div className="space-y-3 mb-8">
+          <button
+            onClick={() => router.push("/onboarding")}
+            className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm"
+          >
+            <User className="w-4 h-4 text-rose-400" />
+            Edit profile
+          </button>
           <button
             onClick={() => router.push("/filters")}
-            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+            className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm"
           >
-            <SlidersHorizontal className="w-4 h-4 text-rose-400" />
+            <Shield className="w-4 h-4 text-rose-400" />
             Discovery filters
           </button>
           <button
             onClick={() => router.push("/blocked")}
-            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+            className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm"
           >
             <Ban className="w-4 h-4 text-rose-400" />
             Blocked users
           </button>
           <button
-            onClick={() => router.push("/invite")}
-            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
-          >
-            <Share2 className="w-4 h-4 text-rose-400" />
-            Invite friends
-          </button>
-          <button
             onClick={() => router.push("/safety")}
-            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+            className="w-full flex items-center gap-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm"
           >
             <Shield className="w-4 h-4 text-rose-400" />
             Safety tips
-          </button>
-          <button
-            onClick={() => router.push("/onboarding")}
-            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm"
-          >
-            Edit profile
           </button>
         </div>
 
@@ -285,7 +246,8 @@ export default function SettingsPage() {
 
         <button
           onClick={handleDelete}
-          className="w-full flex items-center justify-center gap-2 text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 rounded-xl py-3 text-sm"
+          disabled={saving}
+          className="w-full flex items-center justify-center gap-2 border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 rounded-xl py-3 text-sm disabled:opacity-60"
         >
           <Trash2 className="w-4 h-4" />
           Delete account

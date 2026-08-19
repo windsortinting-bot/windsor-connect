@@ -1,113 +1,95 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import { AlertTriangle, ArrowLeft, Shield, Ban } from "lucide-react";
+import { ArrowLeft, Flag } from "lucide-react";
 
 interface ReportRow {
   id: string;
-  reason: string;
+  reason: string | null;
   created_at: string;
   reporter_id: string;
   reported_id: string;
   reporter_name?: string;
   reported_name?: string;
-  is_banned?: boolean;
 }
 
 export default function AdminReportsPage() {
   const router = useRouter();
-  const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [unauthorized, setUnauthorized] = useState(false);
+  const [denied, setDenied] = useState(false);
+  const [rows, setRows] = useState<ReportRow[]>([]);
+  const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const load = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      router.push("/auth");
+      return;
+    }
 
-      if (!user) {
-        router.push("/auth");
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile?.is_admin) {
-        setUnauthorized(true);
-        setLoading(false);
-        return;
-      }
-
-      const { data: reportRows, error } = await supabase
-        .from("reports")
-        .select("id, reason, created_at, reporter_id, reported_id")
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (error) {
-        console.error(error);
-        setLoading(false);
-        return;
-      }
-
-      if (!reportRows || reportRows.length === 0) {
-        setReports([]);
-        setLoading(false);
-        return;
-      }
-
-      const allIds = [
-        ...new Set(reportRows.flatMap((r) => [r.reporter_id, r.reported_id])),
-      ];
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, first_name, is_banned")
-        .in("id", allIds);
-
-      const map = new Map(
-        (profiles ?? []).map((p) => [
-          p.id,
-          { name: p.first_name, banned: p.is_banned },
-        ])
-      );
-
-      const enriched: ReportRow[] = reportRows.map((r) => ({
-        ...r,
-        reporter_name: map.get(r.reporter_id)?.name || "Unknown",
-        reported_name: map.get(r.reported_id)?.name || "Unknown",
-        is_banned: map.get(r.reported_id)?.banned || false,
-      }));
-
-      setReports(enriched);
-      setLoading(false);
-    };
-
-    load();
-  }, [router]);
-
-  const handleBan = async (reportedId: string, name: string) => {
-    if (!confirm(`Ban ${name}? They will be hidden from the app.`)) return;
-
-    await supabase
+    const { data: me } = await supabase
       .from("profiles")
-      .update({ is_banned: true, is_paused: true, is_onboarded: false })
-      .eq("id", reportedId);
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
 
-    setReports((prev) =>
-      prev.map((r) =>
-        r.reported_id === reportedId ? { ...r, is_banned: true } : r
+    if (!me?.is_admin) {
+      setDenied(true);
+      setLoading(false);
+      return;
+    }
+
+    const { data: reports, error } = await supabase
+      .from("reports")
+      .select("id, reason, created_at, reporter_id, reported_id")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      setMessage(error.message);
+      setLoading(false);
+      return;
+    }
+
+    const ids = Array.from(
+      new Set(
+        (reports || []).flatMap((r) => [r.reporter_id, r.reported_id])
       )
     );
 
-    alert(`${name} has been banned.`);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, first_name")
+      .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+
+    const map = new Map((profiles || []).map((p) => [p.id, p.first_name]));
+
+    setRows(
+      (reports || []).map((r) => ({
+        ...r,
+        reporter_name: map.get(r.reporter_id) || "User",
+        reported_name: map.get(r.reported_id) || "User",
+      }))
+    );
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, [router]);
+
+  const banUser = async (reportedId: string, name: string) => {
+    if (!confirm(`Ban ${name}? They will be hidden from discovery.`)) return;
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_banned: true, is_paused: true })
+      .eq("id", reportedId);
+    if (error) setMessage(error.message);
+    else setMessage(`${name} banned`);
   };
 
   if (loading) {
@@ -118,16 +100,15 @@ export default function AdminReportsPage() {
     );
   }
 
-  if (unauthorized) {
+  if (denied) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4">
-        <Shield className="w-12 h-12 text-slate-600 mb-4" />
-        <p className="text-lg font-medium">Access denied</p>
+        <p>Admin access required.</p>
         <button
-          onClick={() => router.push("/swipe")}
-          className="mt-6 text-rose-400 text-sm"
+          onClick={() => router.push("/profile")}
+          className="mt-4 bg-slate-800 px-6 py-3 rounded-xl text-sm"
         >
-          Go back
+          Back
         </button>
       </div>
     );
@@ -135,69 +116,56 @@ export default function AdminReportsPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-md mx-auto">
         <button
-          onClick={() => router.push("/profile")}
-          className="flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-6"
+          onClick={() => router.push("/admin")}
+          className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          Admin
         </button>
 
-        <div className="flex items-center gap-3 mb-8">
-          <AlertTriangle className="w-7 h-7 text-rose-500" />
-          <h1 className="text-2xl font-bold">Reports</h1>
-        </div>
+        <h1 className="text-3xl font-bold mb-2">Reports</h1>
+        <p className="text-slate-500 text-sm mb-6">Review flagged users</p>
 
-        {reports.length === 0 ? (
-          <p className="text-slate-500 text-center py-16">No reports yet</p>
+        {message && (
+          <p className="mb-4 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+            {message}
+          </p>
+        )}
+
+        {rows.length === 0 ? (
+          <div className="text-center py-16">
+            <Flag className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-400">No reports yet</p>
+          </div>
         ) : (
           <div className="space-y-3">
-            {reports.map((r) => (
+            {rows.map((r) => (
               <div
                 key={r.id}
                 className="bg-slate-900 border border-slate-800 rounded-2xl p-4"
               >
-                <div className="flex justify-between items-start gap-3">
-                  <div>
-                    <p className="font-medium text-white">
-                      {r.reported_name}{" "}
-                      <span className="text-slate-500 font-normal">
-                        was reported
-                      </span>
-                      {r.is_banned && (
-                        <span className="ml-2 text-xs bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full">
-                          Banned
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-sm text-slate-400 mt-1">
-                      By {r.reporter_name}
-                    </p>
-                    <p className="text-sm text-rose-400 mt-2">{r.reason}</p>
-                  </div>
-                  <p className="text-xs text-slate-500 whitespace-nowrap">
-                    {new Date(r.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="mt-3 flex gap-4 text-xs">
+                <p className="font-medium text-sm">
+                  {r.reporter_name} reported {r.reported_name}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {r.reason || "No reason"} ·{" "}
+                  {new Date(r.created_at).toLocaleString()}
+                </p>
+                <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => router.push(`/profile/${r.reported_id}`)}
-                    className="text-slate-400 hover:text-white"
+                    className="flex-1 text-sm border border-slate-700 rounded-xl py-2 hover:bg-slate-800"
                   >
                     View profile
                   </button>
-                  {!r.is_banned && (
-                    <button
-                      onClick={() =>
-                        handleBan(r.reported_id, r.reported_name || "user")
-                      }
-                      className="flex items-center gap-1 text-rose-400 hover:text-rose-300"
-                    >
-                      <Ban className="w-3.5 h-3.5" />
-                      Ban user
-                    </button>
-                  )}
+                  <button
+                    onClick={() => banUser(r.reported_id, r.reported_name || "user")}
+                    className="flex-1 text-sm border border-rose-500/40 text-rose-400 rounded-xl py-2 hover:bg-rose-500/10"
+                  >
+                    Ban
+                  </button>
                 </div>
               </div>
             ))}
