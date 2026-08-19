@@ -2,40 +2,40 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, Shield, Heart, MessageCircle } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 
-const FAQS = [
+const FAQ = [
   {
     q: "How does Windsor Connect work?",
-    a: "You get a small daily batch of local profiles. Like or pass. If you both like each other, it’s a match and you can message.",
+    a: "You complete a local profile, get a small daily batch of people, and swipe. If you both like each other, it’s a match and you can message.",
   },
   {
-    q: "Why only a few profiles per day?",
-    a: "Windsor is a real city community, not endless scroll. Daily batches keep attention high and reduce burnout.",
+    q: "Why is there a daily limit?",
+    a: "To keep the app focused on real local connections instead of endless scrolling. Limits reset each day.",
   },
   {
     q: "What is a Super Like?",
-    a: "You get one Super Like per day. It tells the other person you really want to connect. Super Likes appear first in their Likes list.",
-  },
-  {
-    q: "What is Second Look?",
-    a: "If you accidentally pass, Second Look lets you undo your last pass and restore that profile (and refunds that swipe).",
+    a: "You get one Super Like per day. It stands out on the other person’s Likes page so they know you’re especially interested.",
   },
   {
     q: "Why did my match expire?",
-    a: "New matches expire after a few days if nobody messages. Send a hello to keep the conversation open.",
+    a: "If neither person sends a message within a few days, the match can expire so inboxes don’t fill with dead conversations.",
   },
   {
-    q: "How do I stay safe?",
-    a: "Meet in public, tell a friend, never send money, and use Block/Report anytime. Read our Safety tips in Settings.",
+    q: "How do I pause my profile?",
+    a: "Go to Settings and turn on Pause profile. You’ll be hidden from discovery until you unpause.",
   },
   {
-    q: "How do I pause or delete my account?",
-    a: "Go to Profile → Settings. You can pause (hide from discovery), log out, or delete your account permanently.",
+    q: "How do I report someone?",
+    a: "Use Report on the swipe card, likes card, chat menu, or matches actions. Reports go to the admin review queue.",
   },
   {
-    q: "Who can see my profile?",
-    a: "People in the community who pass your filters. Full profile views from Matches are limited to people you’ve matched with.",
+    q: "Is this only for Windsor?",
+    a: "Yes — Windsor Connect is built for the 519 first: Walkerville, Riverside, Downtown, South Windsor, and nearby neighbourhoods.",
+  },
+  {
+    q: "How do I delete my account?",
+    a: "Open Settings → Delete account. This removes your app data. Contact support if you also need auth account removal confirmed.",
   },
 ];
 
@@ -55,36 +55,10 @@ export default function HelpPage() {
         </button>
 
         <h1 className="text-3xl font-bold mb-2">Help</h1>
-        <p className="text-slate-500 text-sm mb-8">
-          Answers for dating in the 519
-        </p>
+        <p className="text-slate-500 text-sm mb-8">FAQ for Windsor Connect</p>
 
-        <div className="grid grid-cols-3 gap-2 mb-8">
-          <button
-            onClick={() => router.push("/safety")}
-            className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-center hover:bg-slate-800"
-          >
-            <Shield className="w-5 h-5 text-rose-400 mx-auto mb-1" />
-            <span className="text-[11px] text-slate-300">Safety</span>
-          </button>
-          <button
-            onClick={() => router.push("/terms")}
-            className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-center hover:bg-slate-800"
-          >
-            <Heart className="w-5 h-5 text-rose-400 mx-auto mb-1" />
-            <span className="text-[11px] text-slate-300">Terms</span>
-          </button>
-          <button
-            onClick={() => router.push("/privacy")}
-            className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-center hover:bg-slate-800"
-          >
-            <MessageCircle className="w-5 h-5 text-rose-400 mx-auto mb-1" />
-            <span className="text-[11px] text-slate-300">Privacy</span>
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {FAQS.map((item, i) => {
+        <div className="space-y-2 mb-8">
+          {FAQ.map((item, i) => {
             const isOpen = open === i;
             return (
               <div
@@ -95,23 +69,44 @@ export default function HelpPage() {
                   onClick={() => setOpen(isOpen ? null : i)}
                   className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
                 >
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium text-slate-100">
                     {item.q}
                   </span>
                   <ChevronDown
-                    className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform ${
+                    className={`w-4 h-4 text-slate-500 transition-transform ${
                       isOpen ? "rotate-180" : ""
                     }`}
                   />
                 </button>
                 {isOpen && (
-                  <div className="px-4 pb-4 text-sm text-slate-400 leading-relaxed">
+                  <p className="px-4 pb-4 text-sm text-slate-400 leading-relaxed">
                     {item.a}
-                  </div>
+                  </p>
                 )}
               </div>
             );
           })}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3">
+          <button
+            onClick={() => router.push("/safety")}
+            className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-xl py-3 text-sm"
+          >
+            Safety tips
+          </button>
+          <button
+            onClick={() => router.push("/terms")}
+            className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-xl py-3 text-sm"
+          >
+            Terms
+          </button>
+          <button
+            onClick={() => router.push("/privacy")}
+            className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-xl py-3 text-sm"
+          >
+            Privacy
+          </button>
         </div>
       </div>
     </div>

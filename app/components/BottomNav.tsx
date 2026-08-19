@@ -3,97 +3,112 @@
 import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, Flame, MessageCircle, User, Users } from "lucide-react";
+import {
+  Flame,
+  Heart,
+  Users,
+  MessageCircle,
+  User,
+} from "lucide-react";
+
+const HIDDEN_PREFIXES = [
+  "/auth",
+  "/welcome",
+  "/onboarding",
+  "/terms",
+  "/privacy",
+  "/offline",
+];
 
 export default function BottomNav() {
-  const router = useRouter();
   const pathname = usePathname();
+  const router = useRouter();
   const [likesCount, setLikesCount] = useState(0);
   const [matchesCount, setMatchesCount] = useState(0);
-  const [messagesCount, setMessagesCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
+    if (!pathname) return;
+    const hide =
+      pathname === "/" ||
+      HIDDEN_PREFIXES.some(
+        (p) => pathname === p || pathname.startsWith(p + "/")
+      );
+    setShow(!hide);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!show) return;
+
+    let cancelled = false;
+
     const loadCounts = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || cancelled) return;
 
-      // Pending likes
+      const { data: mySwipes } = await supabase
+        .from("swipes")
+        .select("target_id")
+        .eq("swiper_id", user.id);
+
+      const mySwipeIds = new Set((mySwipes || []).map((s) => s.target_id));
+
       const { data: incoming } = await supabase
         .from("swipes")
         .select("swiper_id")
         .eq("target_id", user.id)
         .eq("action", "like");
 
-      const likerIds = (incoming ?? []).map((s) => s.swiper_id);
+      const pendingLikes = (incoming || []).filter(
+        (s) => !mySwipeIds.has(s.swiper_id)
+      ).length;
 
-      if (likerIds.length > 0) {
-        const { data: mySwipes } = await supabase
-          .from("swipes")
-          .select("target_id")
-          .eq("swiper_id", user.id);
-
-        const already = new Set((mySwipes ?? []).map((s) => s.target_id));
-        const pending = likerIds.filter((id) => !already.has(id));
-        setLikesCount(pending.length);
-      } else {
-        setLikesCount(0);
-      }
-
-      // Matches count
-      const { data: matchRows } = await supabase
+      const { count: matchCount } = await supabase
         .from("matches")
-        .select("id, user1_id, user2_id")
+        .select("*", { count: "exact", head: true })
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
-      if (matchRows) {
-        const seen = new Set<string>();
-        for (const m of matchRows) {
-          const other = m.user1_id === user.id ? m.user2_id : m.user1_id;
-          seen.add(other);
-        }
-        setMatchesCount(seen.size);
-      } else {
-        setMatchesCount(0);
-      }
-
-      // Messages badge (last message from the other person)
-      if (!matchRows || matchRows.length === 0) {
-        setMessagesCount(0);
-        return;
-      }
+      const { data: matches } = await supabase
+        .from("matches")
+        .select(
+          "id, user1_id, user2_id, last_message_at, user1_last_read_at, user2_last_read_at"
+        )
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
       let unread = 0;
-      for (const m of matchRows) {
-        const { data: lastMsg } = await supabase
-          .from("messages")
-          .select("sender_id")
-          .eq("match_id", m.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (lastMsg && lastMsg.sender_id !== user.id) {
+      for (const m of matches || []) {
+        if (!m.last_message_at) continue;
+        const lastRead =
+          m.user1_id === user.id
+            ? m.user1_last_read_at
+            : m.user2_last_read_at;
+        if (
+          !lastRead ||
+          new Date(m.last_message_at) > new Date(lastRead)
+        ) {
           unread += 1;
         }
       }
-      setMessagesCount(unread);
+
+      if (!cancelled) {
+        setLikesCount(pendingLikes);
+        setMatchesCount(matchCount ?? 0);
+        setUnreadCount(unread);
+      }
     };
 
     loadCounts();
-    const interval = setInterval(loadCounts, 15000);
-    return () => clearInterval(interval);
-  }, [pathname]);
+    const t = setInterval(loadCounts, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [show, pathname]);
 
-  if (
-    pathname === "/" ||
-    pathname?.startsWith("/auth") ||
-    pathname?.startsWith("/admin") ||
-    pathname?.startsWith("/chat")
-  ) {
-    return null;
-  }
+  if (!show) return null;
 
   const tabs = [
     { href: "/swipe", label: "Swipe", icon: Flame, badge: 0 },
@@ -103,40 +118,33 @@ export default function BottomNav() {
       href: "/messages",
       label: "Messages",
       icon: MessageCircle,
-      badge: messagesCount,
+      badge: unreadCount,
     },
     { href: "/profile", label: "Profile", icon: User, badge: 0 },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-950/95 backdrop-blur-md">
-      <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-950/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+      <div className="max-w-md mx-auto flex items-center justify-between px-2 py-2">
         {tabs.map((tab) => {
-          const active =
-            pathname === tab.href || pathname?.startsWith(tab.href + "/");
           const Icon = tab.icon;
-
+          const active =
+            pathname === tab.href || pathname.startsWith(tab.href + "/");
           return (
             <button
               key={tab.href}
               onClick={() => router.push(tab.href)}
-              className={`relative flex flex-col items-center justify-center gap-0.5 w-14 h-full transition-colors ${
-                active ? "text-rose-400" : "text-slate-500 hover:text-slate-300"
+              className={`relative flex-1 flex flex-col items-center gap-0.5 py-1 text-[11px] ${
+                active ? "text-rose-400" : "text-slate-500"
               }`}
             >
-              <div className="relative">
-                <Icon
-                  className={`w-5 h-5 ${
-                    active && tab.href === "/likes" ? "fill-rose-400" : ""
-                  }`}
-                />
-                {tab.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
-                    {tab.badge > 9 ? "9+" : tab.badge}
-                  </span>
-                )}
-              </div>
-              <span className="text-[9px] font-medium">{tab.label}</span>
+              <Icon className={`w-5 h-5 ${active ? "text-rose-400" : ""}`} />
+              <span>{tab.label}</span>
+              {tab.badge > 0 && (
+                <span className="absolute top-0 right-[18%] min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[10px] text-white flex items-center justify-center">
+                  {tab.badge > 9 ? "9+" : tab.badge}
+                </span>
+              )}
             </button>
           );
         })}
