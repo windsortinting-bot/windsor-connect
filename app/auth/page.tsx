@@ -1,20 +1,49 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { Heart } from "lucide-react";
 
 export default function AuthPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
   );
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (searchParams.get("error") === "confirm") {
+      setMessage("Email confirmation failed. Try signing in or request a new link.");
+      setStatus("error");
+    }
+  }, [searchParams]);
+
+  const validateInviteCode = async (raw: string) => {
+    const code = raw.trim().toUpperCase();
+    if (!code) return { ok: false, error: "Invite code required for signup" };
+
+    const { data, error } = await supabase
+      .from("invite_codes")
+      .select("*")
+      .eq("code", code)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error || !data) {
+      return { ok: false, error: "Invalid invite code" };
+    }
+    if (data.used_count >= data.max_uses) {
+      return { ok: false, error: "This invite code is full" };
+    }
+    return { ok: true, row: data };
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,11 +89,22 @@ export default function AuthPage() {
         router.push("/onboarding");
       }
     } else {
+      const check = await validateInviteCode(inviteCode);
+      if (!check.ok) {
+        setStatus("error");
+        setMessage(check.error || "Invalid code");
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: { first_name: firstName.trim() },
+          emailRedirectTo:
+            typeof window !== "undefined"
+              ? `${window.location.origin}/auth/callback`
+              : undefined,
         },
       });
 
@@ -75,13 +115,23 @@ export default function AuthPage() {
       }
 
       const userId = data.user?.id;
+      const code = inviteCode.trim().toUpperCase();
+
       if (userId) {
         await supabase.from("profiles").upsert({
           id: userId,
           first_name: firstName.trim(),
           city: "Windsor",
           is_onboarded: false,
+          invite_code: code,
         });
+
+        if (check.row) {
+          await supabase
+            .from("invite_codes")
+            .update({ used_count: (check.row.used_count || 0) + 1 })
+            .eq("id", check.row.id);
+        }
       }
 
       setStatus("success");
@@ -101,20 +151,30 @@ export default function AuthPage() {
           </div>
           <h1 className="text-3xl font-bold text-white">Windsor Connect</h1>
           <p className="text-slate-400 mt-2">
-            {isLogin ? "Welcome back" : "Join the 519 community"}
+            {isLogin ? "Welcome back" : "Join with an invite code"}
           </p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
           {!isLogin && (
-            <input
-              type="text"
-              placeholder="First name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              required
-              className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500"
-            />
+            <>
+              <input
+                type="text"
+                placeholder="First name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500"
+              />
+              <input
+                type="text"
+                placeholder="Invite code"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                required
+                className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500 tracking-wider"
+              />
+            </>
           )}
           <input
             type="email"

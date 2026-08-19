@@ -3,7 +3,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import { ArrowLeft, Send, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Send,
+  AlertCircle,
+  MoreVertical,
+  Ban,
+  Flag,
+} from "lucide-react";
 
 interface Message {
   id: string;
@@ -48,6 +55,7 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [otherId, setOtherId] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("Chat");
   const [otherPhoto, setOtherPhoto] = useState<string | null>(null);
   const [canSend, setCanSend] = useState(true);
@@ -55,9 +63,10 @@ export default function ChatPage() {
   const [matchExpired, setMatchExpired] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const [sending, setSending] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const typingTimeout = useRef<any>(null);
-  const channelRef = useRef<any>(null);
+  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -83,7 +92,6 @@ export default function ChatPage() {
         return;
       }
 
-      // Mark as read for current user
       if (match.user1_id === user.id) {
         await supabase
           .from("matches")
@@ -111,6 +119,7 @@ export default function ChatPage() {
 
       const oid =
         match.user1_id === user.id ? match.user2_id : match.user1_id;
+      setOtherId(oid);
 
       const { data: otherProfile } = await supabase
         .from("profiles")
@@ -233,7 +242,7 @@ export default function ChatPage() {
 
     if (error) {
       console.error(error);
-      alert("Could not send message. Check your connection and try again.");
+      alert("Could not send message.");
       setSending(false);
       return;
     }
@@ -261,6 +270,43 @@ export default function ChatPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await sendMessage(newMessage);
+  };
+
+  const handleBlock = async () => {
+    if (!userId || !otherId) return;
+    if (!confirm(`Block ${otherName}?`)) return;
+
+    await supabase.from("blocks").insert({
+      blocker_id: userId,
+      blocked_id: otherId,
+    });
+    await supabase.from("matches").delete().eq("id", matchId);
+    router.push("/messages");
+  };
+
+  const handleReport = async () => {
+    if (!userId || !otherId) return;
+
+    const reason = prompt(
+      "Why are you reporting?\n\n1 - Harassment\n2 - Spam/scam\n3 - Inappropriate messages\n4 - Other\n\nType 1, 2, 3 or 4:"
+    );
+    if (!reason) return;
+
+    const reasons: Record<string, string> = {
+      "1": "Harassment",
+      "2": "Spam/scam",
+      "3": "Inappropriate messages",
+      "4": "Other",
+    };
+
+    await supabase.from("reports").insert({
+      reporter_id: userId,
+      reported_id: otherId,
+      reason: reasons[reason] || "Other",
+    });
+
+    alert("Report submitted. Thank you.");
+    setMenuOpen(false);
   };
 
   if (loading) {
@@ -301,15 +347,50 @@ export default function ChatPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         {otherPhoto && (
-          <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-800">
+          <button
+            onClick={() => otherId && router.push(`/profile/${otherId}`)}
+            className="w-9 h-9 rounded-full overflow-hidden bg-slate-800"
+          >
             <img
               src={otherPhoto}
               alt={otherName}
               className="w-full h-full object-cover"
             />
-          </div>
+          </button>
         )}
-        <h1 className="font-semibold text-lg">{otherName}</h1>
+        <button
+          onClick={() => otherId && router.push(`/profile/${otherId}`)}
+          className="font-semibold text-lg flex-1 text-left"
+        >
+          {otherName}
+        </button>
+
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <MoreVertical className="w-5 h-5" />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-9 w-44 bg-slate-900 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-20">
+              <button
+                onClick={handleReport}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-slate-200 hover:bg-slate-800"
+              >
+                <Flag className="w-4 h-4" />
+                Report
+              </button>
+              <button
+                onClick={handleBlock}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-rose-400 hover:bg-slate-800"
+              >
+                <Ban className="w-4 h-4" />
+                Block
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
