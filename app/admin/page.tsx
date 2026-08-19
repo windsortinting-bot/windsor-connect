@@ -13,10 +13,23 @@ import {
   Ticket,
 } from "lucide-react";
 
+async function safeCount(table: string, filter?: (q: any) => any) {
+  try {
+    let q = supabase.from(table).select("*", { count: "exact", head: true });
+    if (filter) q = filter(q);
+    const { count, error } = await q;
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [stats, setStats] = useState({
     profiles: 0,
     onboarded: 0,
@@ -29,59 +42,67 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.push("/auth");
-        return;
-      }
+        if (authError || !user) {
+          router.push("/auth");
+          return;
+        }
 
-      const { data: me } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .single();
-
-      if (!me?.is_admin) {
-        setDenied(true);
-        setLoading(false);
-        return;
-      }
-
-      const [
-        profiles,
-        onboarded,
-        matches,
-        messages,
-        reports,
-        blocked,
-        waitlist,
-      ] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase
+        const { data: me, error: meError } = await supabase
           .from("profiles")
-          .select("*", { count: "exact", head: true })
-          .eq("is_onboarded", true),
-        supabase.from("matches").select("*", { count: "exact", head: true }),
-        supabase.from("messages").select("*", { count: "exact", head: true }),
-        supabase.from("reports").select("*", { count: "exact", head: true }),
-        supabase.from("blocks").select("*", { count: "exact", head: true }),
-        supabase.from("waitlist").select("*", { count: "exact", head: true }),
-      ]);
+          .select("is_admin")
+          .eq("id", user.id)
+          .single();
 
-      setStats({
-        profiles: profiles.count ?? 0,
-        onboarded: onboarded.count ?? 0,
-        matches: matches.count ?? 0,
-        messages: messages.count ?? 0,
-        reports: reports.count ?? 0,
-        blocked: blocked.count ?? 0,
-        waitlist: waitlist.count ?? 0,
-      });
+        if (meError) {
+          setErrorMsg(meError.message);
+          setLoading(false);
+          return;
+        }
 
-      setLoading(false);
+        if (!me?.is_admin) {
+          setDenied(true);
+          setLoading(false);
+          return;
+        }
+
+        const [
+          profiles,
+          onboarded,
+          matches,
+          messages,
+          reports,
+          blocked,
+          waitlist,
+        ] = await Promise.all([
+          safeCount("profiles"),
+          safeCount("profiles", (q) => q.eq("is_onboarded", true)),
+          safeCount("matches"),
+          safeCount("messages"),
+          safeCount("reports"),
+          safeCount("blocks"),
+          safeCount("waitlist"),
+        ]);
+
+        setStats({
+          profiles,
+          onboarded,
+          matches,
+          messages,
+          reports,
+          blocked,
+          waitlist,
+        });
+      } catch (e: any) {
+        setErrorMsg(e?.message || "Failed to load admin");
+      } finally {
+        setLoading(false);
+      }
     };
 
     load();
@@ -97,13 +118,16 @@ export default function AdminDashboardPage() {
 
   if (denied) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4">
-        <p className="text-slate-300">Admin access required.</p>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center">
+        <p className="text-slate-300 mb-2">Admin access required.</p>
+        <p className="text-xs text-slate-500 mb-4">
+          Set is_admin = true on your profile in Supabase.
+        </p>
         <button
           onClick={() => router.push("/profile")}
-          className="mt-4 bg-slate-800 px-6 py-3 rounded-xl text-sm"
+          className="mt-2 bg-slate-800 px-6 py-3 rounded-xl text-sm"
         >
-          Back
+          Back to profile
         </button>
       </div>
     );
@@ -131,7 +155,13 @@ export default function AdminDashboardPage() {
         </button>
 
         <h1 className="text-3xl font-bold mb-2">Admin</h1>
-        <p className="text-slate-500 text-sm mb-8">Windsor Connect overview</p>
+        <p className="text-slate-500 text-sm mb-6">Windsor Connect overview</p>
+
+        {errorMsg && (
+          <p className="mb-4 text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+            {errorMsg}
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-3 mb-6">
           {cards.map((c) => {
