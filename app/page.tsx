@@ -2,13 +2,21 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MapPin, Shield, Users, Sparkles } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import {
+  Heart,
+  MapPin,
+  Shield,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
 export default function LandingPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
   const [message, setMessage] = useState("");
 
   const handleWaitlist = async (e: React.FormEvent) => {
@@ -18,37 +26,34 @@ export default function LandingPage() {
     setStatus("loading");
     setMessage("");
 
-    // Simple waitlist insert (create table if you want; otherwise just route to auth)
-    try {
-      const { error } = await supabase.from("waitlist").insert({
-        email: email.trim().toLowerCase(),
-        city: "Windsor",
-      });
+    const { error } = await supabase.from("waitlist").insert({
+      email: email.trim().toLowerCase(),
+    });
 
-      if (error) {
-        // If waitlist table doesn't exist, still succeed and send them to signup
-        console.log(error);
+    if (error) {
+      if (error.code === "23505") {
+        setStatus("success");
+        setMessage("You’re already on the list.");
+      } else {
+        setStatus("error");
+        setMessage(error.message);
       }
-
+    } else {
       setStatus("success");
-      setMessage("You're on the list. Create your account to start.");
-      setTimeout(() => router.push("/auth"), 1200);
-    } catch {
-      setStatus("success");
-      setMessage("You're in. Let's get you set up.");
-      setTimeout(() => router.push("/auth"), 1200);
+      setMessage("You’re on the list. Welcome to Windsor Connect.");
+      setEmail("");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-20">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center">
               <Heart className="w-4 h-4 text-white fill-white" />
             </div>
-            <span className="font-semibold text-white">Windsor Connect</span>
+            <span className="font-semibold">Windsor Connect</span>
           </div>
           <button
             onClick={() => router.push("/auth")}
@@ -59,105 +64,118 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-lg mx-auto px-4 py-12 w-full">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-1.5 bg-rose-500/10 text-rose-400 text-xs font-medium px-3 py-1 rounded-full mb-4">
-            <MapPin className="w-3.5 h-3.5" />
-            Windsor, Ontario · 519
-          </div>
-          <h1 className="text-4xl font-bold text-white leading-tight">
-            Real connections
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-pink-400">
-              across Windsor
-            </span>
-          </h1>
-          <p className="text-slate-400 mt-4 text-base leading-relaxed max-w-sm mx-auto">
-            A city-first dating app for Walkerville, Riverside, Downtown, and
-            beyond. Small daily batches. No endless swipe fatigue.
-          </p>
+      <main className="flex-1 max-w-lg mx-auto px-4 py-10 w-full">
+        <div className="inline-flex items-center gap-1.5 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-full px-3 py-1 mb-5">
+          <MapPin className="w-3.5 h-3.5" />
+          Built for Windsor, ON · 519
         </div>
 
-        <form onSubmit={handleWaitlist} className="space-y-3 mb-12">
+        <h1 className="text-4xl font-bold leading-tight mb-4">
+          Real connections across Walkerville, Riverside, and beyond
+        </h1>
+        <p className="text-slate-400 text-base mb-8 leading-relaxed">
+          A city-first dating app with small daily batches, real messaging, and
+          safety tools made for Windsor — not endless swipe fatigue.
+        </p>
+
+        <form onSubmit={handleWaitlist} className="space-y-3 mb-4">
           <input
             type="email"
+            required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Your email"
-            required
-            className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3.5 rounded-xl outline-none focus:border-rose-500"
+            placeholder="Email for early access"
+            className="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500"
           />
           <button
             type="submit"
             disabled={status === "loading"}
-            className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-rose-500/25 disabled:opacity-60"
+            className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 disabled:opacity-60 text-white font-semibold py-3 rounded-xl shadow-lg shadow-rose-500/25"
           >
-            {status === "loading" ? "Joining..." : "Join Windsor Connect"}
+            {status === "loading" ? "Joining..." : "Join Windsor list"}
           </button>
-          {message && (
-            <p
-              className={`text-center text-sm ${
-                status === "success" ? "text-emerald-400" : "text-rose-400"
-              }`}
-            >
-              {message}
-            </p>
-          )}
-          <p className="text-center text-xs text-slate-500">
-            Already have an account?{" "}
-            <button
-              type="button"
-              onClick={() => router.push("/auth")}
-              className="text-rose-400 hover:underline"
-            >
-              Sign in
-            </button>
-          </p>
         </form>
 
-        <div className="grid gap-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex gap-4">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-rose-400" />
+        {message && (
+          <p
+            className={`text-sm mb-6 ${
+              status === "success" ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {message}
+          </p>
+        )}
+
+        <button
+          onClick={() => router.push("/auth")}
+          className="w-full border border-slate-700 hover:bg-slate-900 text-white font-medium py-3 rounded-xl mb-12"
+        >
+          Create account / Sign in
+        </button>
+
+        <div className="grid gap-4 mb-12">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-semibold text-white">Daily curated batch</h3>
               <p className="text-sm text-slate-400 mt-1">
-                A small set of people each day — not infinite scrolling.
+                A handful of people each day — quality over infinite scroll.
               </p>
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex gap-4">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-              <Users className="w-5 h-5 text-rose-400" />
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center flex-shrink-0">
+              <Users className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Built for the 519</h3>
+              <h3 className="font-semibold text-white">Local-first</h3>
               <p className="text-sm text-slate-400 mt-1">
-                Neighborhoods, local energy, real faces — not a global meat
-                market.
+                Neighborhoods, real chat, and people actually in the Windsor
+                area.
               </p>
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex gap-4">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-              <Shield className="w-5 h-5 text-rose-400" />
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center flex-shrink-0">
+              <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Anti-ghost tools</h3>
+              <h3 className="font-semibold text-white">Safety tools</h3>
               <p className="text-sm text-slate-400 mt-1">
-                Chat limits, expired dead matches, block & report — less wasted
-                time.
+                Block, report, pause profile, and clear community rules.
               </p>
             </div>
           </div>
         </div>
+
+        <div className="flex flex-wrap gap-4 text-xs text-slate-500 justify-center">
+          <button
+            onClick={() => router.push("/terms")}
+            className="hover:text-slate-300"
+          >
+            Terms
+          </button>
+          <button
+            onClick={() => router.push("/privacy")}
+            className="hover:text-slate-300"
+          >
+            Privacy
+          </button>
+          <button
+            onClick={() => router.push("/help")}
+            className="hover:text-slate-300"
+          >
+            Help
+          </button>
+        </div>
       </main>
 
       <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
-        © {new Date().getFullYear()} Windsor Connect · Built for Windsor, ON
+        © {new Date().getFullYear()} Windsor Connect. Built for Windsor, ON.
       </footer>
     </div>
   );
