@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /terms
+Allow: /privacy
+Allow: /help
+Disallow: /admin
+Disallow: /settings
+Disallow: /chat
+Disallow: /swipe
+Disallow: /matches
+Disallow: /messages
+Disallow: /likes
+Disallow: /profile
+Disallow: /onboarding
+Disallow: /blocked
+Disallow: /filters
+Disallow: /activity

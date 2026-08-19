@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { Heart } from "lucide-react";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -10,7 +11,9 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
+    "idle"
+  );
   const [message, setMessage] = useState("");
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -19,9 +22,8 @@ export default function AuthPage() {
     setMessage("");
 
     if (isLogin) {
-      // LOGIN
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
 
@@ -31,12 +33,26 @@ export default function AuthPage() {
         return;
       }
 
-      // Check if the user has finished onboarding
+      const userId = data.user?.id;
+      if (!userId) {
+        setStatus("error");
+        setMessage("Could not load user.");
+        return;
+      }
+
+      await supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", userId);
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("is_onboarded")
-        .eq("id", data.user.id)
+        .eq("id", userId)
         .single();
+
+      setStatus("success");
+      setMessage("Logged in successfully!");
 
       if (profile?.is_onboarded) {
         router.push("/swipe");
@@ -44,23 +60,35 @@ export default function AuthPage() {
         router.push("/onboarding");
       }
     } else {
-      // SIGN UP
-      const { error } = await supabase.auth.signUp({
-        email,
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
         password,
         options: {
-          data: { first_name: firstName },
+          data: { first_name: firstName.trim() },
         },
       });
 
       if (error) {
         setStatus("error");
         setMessage(error.message);
-      } else {
-        setStatus("success");
-        setMessage("Account created! Check your email, then come back and sign in.");
-        setIsLogin(true);
+        return;
       }
+
+      const userId = data.user?.id;
+      if (userId) {
+        await supabase.from("profiles").upsert({
+          id: userId,
+          first_name: firstName.trim(),
+          city: "Windsor",
+          is_onboarded: false,
+        });
+      }
+
+      setStatus("success");
+      setMessage(
+        "Account created. Check your email to confirm if required, then sign in."
+      );
+      setIsLogin(true);
     }
   };
 
@@ -68,6 +96,9 @@ export default function AuthPage() {
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8">
         <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center mx-auto mb-4">
+            <Heart className="w-6 h-6 text-white fill-white" />
+          </div>
           <h1 className="text-3xl font-bold text-white">Windsor Connect</h1>
           <p className="text-slate-400 mt-2">
             {isLogin ? "Welcome back" : "Join the 519 community"}
@@ -85,7 +116,6 @@ export default function AuthPage() {
               className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500"
             />
           )}
-
           <input
             type="email"
             placeholder="Email address"
@@ -94,7 +124,6 @@ export default function AuthPage() {
             required
             className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500"
           />
-
           <input
             type="password"
             placeholder="Password"
@@ -104,7 +133,6 @@ export default function AuthPage() {
             minLength={6}
             className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500"
           />
-
           <button
             type="submit"
             disabled={status === "loading"}
@@ -140,6 +168,18 @@ export default function AuthPage() {
             {isLogin
               ? "Don't have an account? Create one"
               : "Already have an account? Sign in"}
+          </button>
+        </div>
+
+        <div className="mt-6 flex justify-center gap-4 text-xs text-slate-600">
+          <button onClick={() => router.push("/terms")} className="hover:text-slate-400">
+            Terms
+          </button>
+          <button onClick={() => router.push("/privacy")} className="hover:text-slate-400">
+            Privacy
+          </button>
+          <button onClick={() => router.push("/")} className="hover:text-slate-400">
+            Home
           </button>
         </div>
       </div>

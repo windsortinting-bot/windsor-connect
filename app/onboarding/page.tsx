@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, Upload, X } from "lucide-react";
 
 const NEIGHBORHOODS = [
   "Walkerville",
@@ -15,33 +14,36 @@ const NEIGHBORHOODS = [
 ];
 
 const PROMPT_OPTIONS = [
-  "A perfect Windsor Saturday looks like…",
-  "My ideal first date is…",
-  "I'm weirdly good at…",
+  "A perfect Windsor weekend looks like…",
+  "My simple pleasure is…",
+  "I’m looking for someone who…",
+  "You’ll find me at…",
   "The way to my heart is…",
-  "Don't hate me if I…",
   "I geek out on…",
 ];
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
 
   const [firstName, setFirstName] = useState("");
-  const [age, setAge] = useState("");
+  const [age, setAge] = useState(25);
   const [gender, setGender] = useState("");
-  const [targetGender, setTargetGender] = useState("");
+  const [targetGender, setTargetGender] = useState("everyone");
   const [neighborhood, setNeighborhood] = useState("");
-  const [preferredNeighborhoods, setPreferredNeighborhoods] = useState<string[]>([]);
   const [bio, setBio] = useState("");
-  const [minAgePref, setMinAgePref] = useState("21");
-  const [maxAgePref, setMaxAgePref] = useState("45");
   const [height, setHeight] = useState("");
   const [kidsStatus, setKidsStatus] = useState("prefer_not");
   const [kidsPreference, setKidsPreference] = useState("open");
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [minAge, setMinAge] = useState(21);
+  const [maxAge, setMaxAge] = useState(55);
+  const [preferredNeighborhoods, setPreferredNeighborhoods] = useState<
+    string[]
+  >([]);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
   const [prompt1, setPrompt1] = useState(PROMPT_OPTIONS[0]);
@@ -56,45 +58,41 @@ export default function OnboardingPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
         router.push("/auth");
         return;
       }
-
       setUserId(user.id);
 
-      const { data: profile } = await supabase
+      const { data: p } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
 
-      if (profile) {
-        setFirstName(profile.first_name || "");
-        setAge(profile.age ? String(profile.age) : "");
-        setGender(profile.gender || "");
-        setTargetGender(profile.target_gender || "");
-        setNeighborhood(profile.neighborhood || "");
-        setPreferredNeighborhoods(profile.preferred_neighborhoods || []);
-        setBio(profile.bio || "");
-        setMinAgePref(profile.min_age_pref ? String(profile.min_age_pref) : "21");
-        setMaxAgePref(profile.max_age_pref ? String(profile.max_age_pref) : "45");
-        setHeight(profile.height || "");
-        setKidsStatus(profile.kids_status || "prefer_not");
-        setKidsPreference(profile.kids_preference || "open");
-        setPhotoUrls(profile.photo_urls || []);
-        setPrompt1(profile.prompt_1 || PROMPT_OPTIONS[0]);
-        setPrompt1Answer(profile.prompt_1_answer || "");
-        setPrompt2(profile.prompt_2 || PROMPT_OPTIONS[1]);
-        setPrompt2Answer(profile.prompt_2_answer || "");
-        setPrompt3(profile.prompt_3 || PROMPT_OPTIONS[2]);
-        setPrompt3Answer(profile.prompt_3_answer || "");
+      if (p) {
+        setFirstName(p.first_name || "");
+        setAge(p.age || 25);
+        setGender(p.gender || "");
+        setTargetGender(p.target_gender || "everyone");
+        setNeighborhood(p.neighborhood || "");
+        setBio(p.bio || "");
+        setHeight(p.height || "");
+        setKidsStatus(p.kids_status || "prefer_not");
+        setKidsPreference(p.kids_preference || "open");
+        setMinAge(p.min_age_pref || 21);
+        setMaxAge(p.max_age_pref || 55);
+        setPreferredNeighborhoods(p.preferred_neighborhoods || []);
+        setPhotos(p.photo_urls || []);
+        setPrompt1(p.prompt_1 || PROMPT_OPTIONS[0]);
+        setPrompt1Answer(p.prompt_1_answer || "");
+        setPrompt2(p.prompt_2 || PROMPT_OPTIONS[1]);
+        setPrompt2Answer(p.prompt_2_answer || "");
+        setPrompt3(p.prompt_3 || PROMPT_OPTIONS[2]);
+        setPrompt3Answer(p.prompt_3_answer || "");
       }
-
       setLoading(false);
     };
-
     load();
   }, [router]);
 
@@ -104,101 +102,94 @@ export default function OnboardingPage() {
     );
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!userId || !e.target.files || e.target.files.length === 0) return;
-    if (photoUrls.length >= 3) {
-      alert("Maximum 3 photos.");
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!userId || !e.target.files?.length) return;
+    if (photos.length >= 3) {
+      setMessage("Max 3 photos");
       return;
     }
 
     const file = e.target.files[0];
     if (!file.type.startsWith("image/")) {
-      alert("Please upload an image.");
+      setMessage("Please choose an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("Image must be under 5MB");
       return;
     }
 
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const filePath = `${userId}/${Date.now()}.${ext}`;
+    setMessage("");
 
-    const { error: uploadError } = await supabase.storage
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${userId}/${Date.now()}.${ext}`;
+
+    const { error } = await supabase.storage
       .from("profile-photos")
-      .upload(filePath, file, { upsert: true });
+      .upload(path, file, { upsert: true });
 
-    if (uploadError) {
-      console.error(uploadError);
-      alert("Upload failed. Check the profile-photos bucket is public.");
+    if (error) {
+      setMessage(error.message);
       setUploading(false);
       return;
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("profile-photos").getPublicUrl(filePath);
-
-    setPhotoUrls((prev) => [...prev, publicUrl]);
+    const { data } = supabase.storage.from("profile-photos").getPublicUrl(path);
+    setPhotos((prev) => [...prev, data.publicUrl].slice(0, 3));
     setUploading(false);
   };
 
-  const removePhoto = (index: number) => {
-    setPhotoUrls((prev) => prev.filter((_, i) => i !== index));
+  const removePhoto = (url: string) => {
+    setPhotos((prev) => prev.filter((p) => p !== url));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
 
-    if (!firstName || !age || !gender || !targetGender || !neighborhood) {
-      alert("Please fill in all required fields.");
+    if (!firstName.trim() || !gender || !neighborhood) {
+      setMessage("Please fill first name, gender, and neighborhood");
       return;
     }
-
-    if (photoUrls.length === 0) {
-      alert("Please add at least one photo.");
-      return;
-    }
-
-    const minA = parseInt(minAgePref) || 18;
-    const maxA = parseInt(maxAgePref) || 99;
-    if (minA > maxA) {
-      alert("Min age cannot be higher than max age.");
+    if (age < 18) {
+      setMessage("You must be 18+");
       return;
     }
 
     setSaving(true);
+    setMessage("");
 
     const { error } = await supabase.from("profiles").upsert({
       id: userId,
       first_name: firstName.trim(),
-      age: parseInt(age),
+      age,
       gender,
       target_gender: targetGender,
       neighborhood,
-      preferred_neighborhoods: preferredNeighborhoods,
-      city: "Windsor",
-      bio: bio.trim() || null,
-      photo_urls: photoUrls,
-      min_age_pref: minA,
-      max_age_pref: maxA,
+      bio: bio.trim(),
       height: height.trim() || null,
       kids_status: kidsStatus,
       kids_preference: kidsPreference,
+      min_age_pref: Math.min(minAge, maxAge),
+      max_age_pref: Math.max(minAge, maxAge),
+      preferred_neighborhoods: preferredNeighborhoods,
+      photo_urls: photos,
       prompt_1: prompt1,
       prompt_1_answer: prompt1Answer.trim() || null,
       prompt_2: prompt2,
       prompt_2_answer: prompt2Answer.trim() || null,
       prompt_3: prompt3,
       prompt_3_answer: prompt3Answer.trim() || null,
+      city: "Windsor",
       is_onboarded: true,
-      is_banned: false,
-      updated_at: new Date().toISOString(),
+      last_active_at: new Date().toISOString(),
     });
 
     setSaving(false);
 
     if (error) {
-      console.error(error);
-      alert("Could not save profile. Try again.");
+      setMessage(error.message);
       return;
     }
 
@@ -214,21 +205,23 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 py-10 pb-28">
+    <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
-        <div className="text-center mb-8">
-          <Heart className="w-10 h-10 text-rose-500 mx-auto mb-3" />
-          <h1 className="text-2xl font-bold">Complete your profile</h1>
-          <p className="text-slate-400 text-sm mt-1">
-            This helps people in Windsor find you
+        <h1 className="text-3xl font-bold mb-2">Complete your profile</h1>
+        <p className="text-slate-500 text-sm mb-8">
+          This helps people in Windsor find you
+        </p>
+
+        {message && (
+          <p className="mb-4 text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+            {message}
           </p>
-        </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">First Name</label>
+            <label className="text-sm text-slate-400 block mb-2">First Name</label>
             <input
-              type="text"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               required
@@ -237,58 +230,20 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">Age</label>
+            <label className="text-sm text-slate-400 block mb-2">Age</label>
             <input
               type="number"
               min={18}
               max={99}
               value={age}
-              onChange={(e) => setAge(e.target.value)}
+              onChange={(e) => setAge(Number(e.target.value))}
               required
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             />
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">Height</label>
-            <input
-              type="text"
-              value={height}
-              onChange={(e) => setHeight(e.target.value)}
-              placeholder={`e.g. 5'10" or 178 cm`}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-slate-400 mb-1 block">Do you have kids?</label>
-            <select
-              value={kidsStatus}
-              onChange={(e) => setKidsStatus(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
-            >
-              <option value="no_kids">Don't have kids</option>
-              <option value="have_kids">Have kids</option>
-              <option value="prefer_not">Prefer not to say</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm text-slate-400 mb-1 block">Open to kids?</label>
-            <select
-              value={kidsPreference}
-              onChange={(e) => setKidsPreference(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
-            >
-              <option value="want">Want kids</option>
-              <option value="dont_want">Don't want kids</option>
-              <option value="already_have">Already have kids</option>
-              <option value="open">Open to kids</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm text-slate-400 mb-1 block">I am</label>
+            <label className="text-sm text-slate-400 block mb-2">I am</label>
             <select
               value={gender}
               onChange={(e) => setGender(e.target.value)}
@@ -303,47 +258,46 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">Looking for</label>
+            <label className="text-sm text-slate-400 block mb-2">Looking for</label>
             <select
               value={targetGender}
               onChange={(e) => setTargetGender(e.target.value)}
-              required
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             >
-              <option value="">Select</option>
-              <option value="man">Men</option>
-              <option value="woman">Women</option>
               <option value="everyone">Everyone</option>
+              <option value="woman">Women</option>
+              <option value="man">Men</option>
+              <option value="non-binary">Non-binary</option>
             </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-slate-400 mb-1 block">Min age</label>
+              <label className="text-sm text-slate-400 block mb-2">Min age pref</label>
               <input
                 type="number"
                 min={18}
                 max={99}
-                value={minAgePref}
-                onChange={(e) => setMinAgePref(e.target.value)}
+                value={minAge}
+                onChange={(e) => setMinAge(Number(e.target.value))}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
               />
             </div>
             <div>
-              <label className="text-sm text-slate-400 mb-1 block">Max age</label>
+              <label className="text-sm text-slate-400 block mb-2">Max age pref</label>
               <input
                 type="number"
                 min={18}
                 max={99}
-                value={maxAgePref}
-                onChange={(e) => setMaxAgePref(e.target.value)}
+                value={maxAge}
+                onChange={(e) => setMaxAge(Number(e.target.value))}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">My neighborhood</label>
+            <label className="text-sm text-slate-400 block mb-2">Neighborhood</label>
             <select
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
@@ -360,8 +314,8 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-2 block">
-              Neighborhoods I prefer (optional)
+            <label className="text-sm text-slate-400 block mb-2">
+              Preferred neighborhoods (optional)
             </label>
             <div className="flex flex-wrap gap-2">
               {NEIGHBORHOODS.map((n) => {
@@ -371,10 +325,10 @@ export default function OnboardingPage() {
                     key={n}
                     type="button"
                     onClick={() => togglePreferred(n)}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    className={`px-3 py-1.5 rounded-full text-sm border ${
                       active
-                        ? "bg-rose-500/20 border-rose-500 text-rose-300"
-                        : "bg-slate-900 border-slate-700 text-slate-400"
+                        ? "bg-rose-500 border-rose-500 text-white"
+                        : "bg-slate-900 border-slate-700 text-slate-300"
                     }`}
                   >
                     {n}
@@ -385,128 +339,133 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 mb-1 block">Bio</label>
+            <label className="text-sm text-slate-400 block mb-2">Height (optional)</label>
+            <input
+              value={height}
+              onChange={(e) => setHeight(e.target.value)}
+              placeholder="e.g. 5'10&quot;"
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 block mb-2">Kids status</label>
+            <select
+              value={kidsStatus}
+              onChange={(e) => setKidsStatus(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
+            >
+              <option value="prefer_not">Prefer not to say</option>
+              <option value="no_kids">Don’t have kids</option>
+              <option value="have_kids">Have kids</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 block mb-2">Open to kids</label>
+            <select
+              value={kidsPreference}
+              onChange={(e) => setKidsPreference(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
+            >
+              <option value="open">Open</option>
+              <option value="want">Want kids</option>
+              <option value="dont_want">Don’t want kids</option>
+              <option value="already_have">Already have</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 block mb-2">Bio</label>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               rows={3}
-              placeholder="A little about you..."
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500 resize-none"
+              maxLength={400}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             />
           </div>
 
-          <div className="space-y-4 pt-2">
-            <p className="text-sm text-slate-400 font-medium">Profile prompts (optional)</p>
-
-            <div className="space-y-2">
-              <select
-                value={prompt1}
-                onChange={(e) => setPrompt1(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
-              >
-                {PROMPT_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                value={prompt1Answer}
-                onChange={(e) => setPrompt1Answer(e.target.value)}
-                placeholder="Your answer..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <select
-                value={prompt2}
-                onChange={(e) => setPrompt2(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
-              >
-                {PROMPT_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                value={prompt2Answer}
-                onChange={(e) => setPrompt2Answer(e.target.value)}
-                placeholder="Your answer..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <select
-                value={prompt3}
-                onChange={(e) => setPrompt3(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
-              >
-                {PROMPT_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                value={prompt3Answer}
-                onChange={(e) => setPrompt3Answer(e.target.value)}
-                placeholder="Your answer..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rose-500"
-              />
-            </div>
-          </div>
-
           <div>
-            <label className="text-sm text-slate-400 mb-2 block">Photos (up to 3)</label>
-            <div className="flex gap-3 flex-wrap">
-              {photoUrls.map((url, i) => (
-                <div
-                  key={i}
-                  className="relative w-24 h-24 rounded-xl overflow-hidden bg-slate-800"
-                >
+            <label className="text-sm text-slate-400 block mb-2">
+              Photos (up to 3)
+            </label>
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {photos.map((url) => (
+                <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden">
                   <img src={url} alt="" className="w-full h-full object-cover" />
                   <button
                     type="button"
-                    onClick={() => removePhoto(i)}
-                    className="absolute top-1 right-1 bg-black/70 rounded-full p-0.5"
+                    onClick={() => removePhoto(url)}
+                    className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 rounded"
                   >
-                    <X className="w-3.5 h-3.5 text-white" />
+                    x
                   </button>
                 </div>
               ))}
-
-              {photoUrls.length < 3 && (
-                <label className="w-24 h-24 rounded-xl border border-dashed border-slate-600 flex flex-col items-center justify-center cursor-pointer hover:border-rose-500 transition-colors">
-                  {uploading ? (
-                    <span className="text-xs text-slate-400">...</span>
-                  ) : (
-                    <>
-                      <Upload className="w-5 h-5 text-slate-400 mb-1" />
-                      <span className="text-[10px] text-slate-500">Add</span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    disabled={uploading}
-                  />
-                </label>
-              )}
             </div>
+            {photos.length < 3 && (
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleUpload}
+                disabled={uploading}
+                className="text-sm text-slate-400"
+              />
+            )}
+            {uploading && (
+              <p className="text-xs text-slate-500 mt-1">Uploading...</p>
+            )}
+          </div>
+
+          <div className="space-y-4 border-t border-slate-800 pt-4">
+            <p className="text-sm text-slate-400">Prompts (optional)</p>
+            {[
+              {
+                prompt: prompt1,
+                setPrompt: setPrompt1,
+                answer: prompt1Answer,
+                setAnswer: setPrompt1Answer,
+              },
+              {
+                prompt: prompt2,
+                setPrompt: setPrompt2,
+                answer: prompt2Answer,
+                setAnswer: setPrompt2Answer,
+              },
+              {
+                prompt: prompt3,
+                setPrompt: setPrompt3,
+                answer: prompt3Answer,
+                setAnswer: setPrompt3Answer,
+              },
+            ].map((row, i) => (
+              <div key={i} className="space-y-2">
+                <select
+                  value={row.prompt}
+                  onChange={(e) => row.setPrompt(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm outline-none focus:border-rose-500"
+                >
+                  {PROMPT_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={row.answer}
+                  onChange={(e) => row.setAnswer(e.target.value)}
+                  placeholder="Your answer"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm outline-none focus:border-rose-500"
+                />
+              </div>
+            ))}
           </div>
 
           <button
             type="submit"
-            disabled={saving || uploading}
-            className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold py-3.5 rounded-xl disabled:opacity-50"
+            disabled={saving}
+            className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 disabled:opacity-60 text-white font-semibold py-3 rounded-xl"
           >
             {saving ? "Saving..." : "Finish & Start Swiping"}
           </button>
