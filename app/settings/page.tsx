@@ -12,6 +12,8 @@ import {
   Shield,
   Share2,
   Bell,
+  Ban,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -53,7 +55,6 @@ export default function SettingsPage() {
         setNotifyLikes(profile.notify_likes ?? true);
       }
 
-      // Touch last active
       await supabase
         .from("profiles")
         .update({ last_active_at: new Date().toISOString() })
@@ -78,7 +79,9 @@ export default function SettingsPage() {
       setMessage(error.message);
     } else {
       setIsPaused(next);
-      setMessage(next ? "Profile paused — you’re hidden." : "Profile is live again.");
+      setMessage(
+        next ? "Profile paused — you’re hidden." : "Profile is live again."
+      );
     }
     setSaving(false);
   };
@@ -106,22 +109,23 @@ export default function SettingsPage() {
     );
     if (!ok) return;
 
-    const confirmText = prompt('Type DELETE to confirm:');
+    const confirmText = prompt("Type DELETE to confirm:");
     if (confirmText !== "DELETE") {
       alert("Cancelled.");
       return;
     }
 
-    // Clean related rows best-effort
     await supabase.from("messages").delete().eq("sender_id", userId);
     await supabase.from("swipes").delete().eq("swiper_id", userId);
     await supabase.from("swipes").delete().eq("target_id", userId);
-    await supabase.from("matches").delete().or(
-      `user1_id.eq.${userId},user2_id.eq.${userId}`
-    );
-    await supabase.from("blocks").delete().or(
-      `blocker_id.eq.${userId},blocked_id.eq.${userId}`
-    );
+    await supabase
+      .from("matches")
+      .delete()
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+    await supabase
+      .from("blocks")
+      .delete()
+      .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
     await supabase.from("profiles").delete().eq("id", userId);
     await supabase.auth.signOut();
     router.push("/");
@@ -157,7 +161,6 @@ export default function SettingsPage() {
           </p>
         )}
 
-        {/* Pause */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-start gap-3">
@@ -191,7 +194,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Notifications */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
           <div className="flex items-center gap-2 mb-4">
             <Bell className="w-5 h-5 text-rose-400" />
@@ -234,18 +236,22 @@ export default function SettingsPage() {
               />
             </label>
           ))}
-          <p className="text-xs text-slate-600 mt-2">
-            Preferences are saved. Push alerts can be wired later.
-          </p>
         </div>
 
-        {/* Links */}
         <div className="space-y-2 mb-6">
           <button
             onClick={() => router.push("/filters")}
-            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm"
+            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
           >
+            <SlidersHorizontal className="w-4 h-4 text-rose-400" />
             Discovery filters
+          </button>
+          <button
+            onClick={() => router.push("/blocked")}
+            className="w-full text-left bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+          >
+            <Ban className="w-4 h-4 text-rose-400" />
+            Blocked users
           </button>
           <button
             onClick={() => router.push("/invite")}

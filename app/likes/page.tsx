@@ -15,6 +15,7 @@ import {
   MapPin,
   ChevronLeft,
   ChevronRight,
+  Star,
 } from "lucide-react";
 import MatchModal from "../components/MatchModal";
 
@@ -34,6 +35,7 @@ interface Profile {
   prompt_2_answer?: string | null;
   prompt_3?: string | null;
   prompt_3_answer?: string | null;
+  is_super_like?: boolean;
 }
 
 function kidsStatusLabel(status?: string | null) {
@@ -61,6 +63,7 @@ export default function LikesPage() {
   const [showMatch, setShowMatch] = useState(false);
   const [matchedUser, setMatchedUser] = useState<Profile | null>(null);
   const [matchId, setMatchId] = useState("");
+  const [superLikeIds, setSuperLikeIds] = useState<Set<string>>(new Set());
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -80,6 +83,11 @@ export default function LikesPage() {
 
       setUserId(user.id);
 
+      await supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", user.id);
+
       const { data: myProfile } = await supabase
         .from("profiles")
         .select("photo_urls")
@@ -88,21 +96,26 @@ export default function LikesPage() {
 
       setCurrentUserPhoto(myProfile?.photo_urls?.[0] || null);
 
-      // People who liked me
       const { data: incoming } = await supabase
         .from("swipes")
-        .select("swiper_id")
+        .select("swiper_id, is_super_like")
         .eq("target_id", user.id)
         .eq("action", "like");
 
       const likerIds = (incoming ?? []).map((s) => s.swiper_id);
+      const superIds = new Set(
+        (incoming ?? [])
+          .filter((s) => s.is_super_like)
+          .map((s) => s.swiper_id)
+      );
+      setSuperLikeIds(superIds);
+
       if (likerIds.length === 0) {
         setProfiles([]);
         setLoading(false);
         return;
       }
 
-      // Already swiped by me
       const { data: mySwipes } = await supabase
         .from("swipes")
         .select("target_id")
@@ -123,7 +136,20 @@ export default function LikesPage() {
         .in("id", pendingIds)
         .eq("is_onboarded", true);
 
-      const clean = (people ?? []).filter((p) => !p.is_banned && !p.is_paused);
+      let clean = (people ?? []).filter((p) => !p.is_banned && !p.is_paused);
+
+      // Super likes first
+      clean = clean
+        .map((p) => ({
+          ...p,
+          is_super_like: superIds.has(p.id),
+        }))
+        .sort((a, b) => {
+          if (a.is_super_like && !b.is_super_like) return -1;
+          if (!a.is_super_like && b.is_super_like) return 1;
+          return 0;
+        });
+
       setProfiles(clean);
       setCurrentIndex(0);
       setPhotoIndex(0);
@@ -145,7 +171,6 @@ export default function LikesPage() {
     });
 
     if (action === "like") {
-      // They already liked you → create match
       const { data: newMatch } = await supabase
         .from("matches")
         .insert({
@@ -198,7 +223,7 @@ export default function LikesPage() {
         <Heart className="w-16 h-16 text-rose-500 mb-4" />
         <h2 className="text-2xl font-bold">No pending likes</h2>
         <p className="text-slate-400 mt-2 max-w-xs">
-          When someone likes you, they’ll show up here so you can decide.
+          When someone likes or Super Likes you, they’ll show up here.
         </p>
         <button
           onClick={() => router.push("/swipe")}
@@ -217,6 +242,9 @@ export default function LikesPage() {
 
   const statusLabel = kidsStatusLabel(currentProfile.kids_status);
   const prefLabel = kidsPrefLabel(currentProfile.kids_preference);
+  const isSuper = !!(
+    currentProfile.is_super_like || superLikeIds.has(currentProfile.id)
+  );
 
   const prompts = [
     currentProfile.prompt_1_answer
@@ -237,6 +265,12 @@ export default function LikesPage() {
         <p className="text-slate-500 text-sm text-center mt-1">
           {profiles.length - currentIndex} waiting for you
         </p>
+        {isSuper && (
+          <div className="mt-3 flex items-center justify-center gap-2 text-amber-400 text-sm font-medium">
+            <Star className="w-4 h-4 fill-amber-400" />
+            Super Liked you
+          </div>
+        )}
       </div>
 
       <div className="w-full max-w-sm relative">
@@ -252,7 +286,9 @@ export default function LikesPage() {
               else if (info.offset.x < -100) handleSwipeAction("pass");
               else x.set(0);
             }}
-            className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing touch-pan-y"
+            className={`bg-slate-900 border rounded-3xl overflow-hidden shadow-2xl cursor-grab active:cursor-grabbing touch-pan-y ${
+              isSuper ? "border-amber-500/50" : "border-slate-800"
+            }`}
           >
             <motion.div
               style={{ opacity: likeOpacity }}
@@ -278,6 +314,13 @@ export default function LikesPage() {
               ) : (
                 <div className="w-full h-full flex items-center justify-center pointer-events-none">
                   <Heart className="w-12 h-12 text-slate-600" />
+                </div>
+              )}
+
+              {isSuper && (
+                <div className="absolute top-3 left-3 z-10 bg-amber-500 text-slate-950 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-slate-950" />
+                  SUPER LIKE
                 </div>
               )}
 
