@@ -3,7 +3,32 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import { Heart, MapPin, ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  Heart,
+  MapPin,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+interface ProfileData {
+  id: string;
+  first_name: string;
+  age: number | null;
+  neighborhood: string | null;
+  bio: string | null;
+  photo_urls: string[] | null;
+  height?: string | null;
+  kids_status?: string | null;
+  kids_preference?: string | null;
+  prompt_1?: string | null;
+  prompt_1_answer?: string | null;
+  prompt_2?: string | null;
+  prompt_2_answer?: string | null;
+  prompt_3?: string | null;
+  prompt_3_answer?: string | null;
+  last_active_at?: string | null;
+}
 
 function kidsStatusLabel(status?: string | null) {
   if (status === "have_kids") return "Has kids";
@@ -19,45 +44,104 @@ function kidsPrefLabel(pref?: string | null) {
   return null;
 }
 
+function lastActiveLabel(iso: string | null | undefined) {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 15) return "Active now";
+  if (mins < 60) return `Active ${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Active ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Active yesterday";
+  if (days < 7) return `Active ${days}d ago`;
+  return null;
+}
+
 export default function ViewProfilePage() {
   const router = useRouter();
   const params = useParams();
   const profileId = params.id as string;
 
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [notAllowed, setNotAllowed] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+
+      // Only allow viewing if matched or self
+      if (user.id !== profileId) {
+        const { data: match } = await supabase
+          .from("matches")
+          .select("id")
+          .or(
+            `and(user1_id.eq.${user.id},user2_id.eq.${profileId}),and(user1_id.eq.${profileId},user2_id.eq.${user.id})`
+          )
+          .maybeSingle();
+
+        if (!match) {
+          setNotAllowed(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data: p, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", profileId)
         .single();
 
-      setProfile(data);
+      if (error || !p) {
+        setProfile(null);
+      } else {
+        setProfile(p);
+      }
       setLoading(false);
     };
 
-    if (profileId) load();
-  }, [profileId]);
+    load();
+  }, [profileId, router]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        Loading...
+        Loading profile...
+      </div>
+    );
+  }
+
+  if (notAllowed) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center">
+        <p className="text-slate-300">You can only view profiles you matched with.</p>
+        <button
+          onClick={() => router.push("/matches")}
+          className="mt-4 bg-rose-500 text-white px-6 py-3 rounded-xl text-sm"
+        >
+          Back to Matches
+        </button>
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4">
-        <p>Profile not found</p>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4 text-center">
+        <p className="text-slate-300">Profile not found.</p>
         <button
           onClick={() => router.back()}
-          className="mt-4 text-rose-400 text-sm"
+          className="mt-4 bg-slate-800 text-white px-6 py-3 rounded-xl text-sm"
         >
           Go back
         </button>
@@ -72,6 +156,7 @@ export default function ViewProfilePage() {
 
   const statusLabel = kidsStatusLabel(profile.kids_status);
   const prefLabel = kidsPrefLabel(profile.kids_preference);
+  const active = lastActiveLabel(profile.last_active_at);
 
   const prompts = [
     profile.prompt_1_answer
@@ -83,14 +168,14 @@ export default function ViewProfilePage() {
     profile.prompt_3_answer
       ? { q: profile.prompt_3, a: profile.prompt_3_answer }
       : null,
-  ].filter(Boolean) as { q: string; a: string }[];
+  ].filter(Boolean) as { q: string | null | undefined; a: string }[];
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-6"
+          className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
@@ -106,14 +191,14 @@ export default function ViewProfilePage() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Heart className="w-16 h-16 text-slate-600" />
+                <Heart className="w-12 h-12 text-slate-600" />
               </div>
             )}
 
             {photos.length > 1 && (
               <>
                 <div className="absolute top-3 left-0 right-0 flex justify-center gap-1.5 z-10">
-                  {photos.map((_: string, i: number) => (
+                  {photos.map((_, i) => (
                     <div
                       key={i}
                       className={`h-1 rounded-full transition-all ${
@@ -124,32 +209,35 @@ export default function ViewProfilePage() {
                 </div>
                 <button
                   type="button"
-                  className="absolute left-0 top-0 bottom-0 w-1/3 z-10"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white"
                   onClick={() => setPhotoIndex((p) => Math.max(0, p - 1))}
-                />
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
                 <button
                   type="button"
-                  className="absolute right-0 top-0 bottom-0 w-1/3 z-10"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center text-white"
                   onClick={() =>
                     setPhotoIndex((p) => Math.min(photos.length - 1, p + 1))
                   }
-                />
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               </>
             )}
           </div>
 
-          <div className="p-6">
-            <h1 className="text-2xl font-bold">
+          <div className="p-5">
+            <h2 className="text-2xl font-bold">
               {profile.first_name}
               {profile.age ? `, ${profile.age}` : ""}
-            </h1>
+            </h2>
 
-            <div className="flex items-center gap-1 text-rose-400 text-sm mt-1">
-              <MapPin className="w-4 h-4" />
-              {profile.neighborhood || profile.city || "Windsor"}
-            </div>
+            {active && (
+              <p className="text-xs text-emerald-400 mt-1">{active}</p>
+            )}
 
-            <div className="flex flex-wrap gap-2 mt-3 text-xs">
+            <div className="flex flex-wrap gap-2 my-3 text-xs">
               {profile.height && (
                 <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
                   {profile.height}
@@ -167,20 +255,26 @@ export default function ViewProfilePage() {
               )}
             </div>
 
-            {profile.gender && (
-              <p className="text-slate-400 text-sm mt-3 capitalize">
-                {profile.gender}
-              </p>
+            {profile.neighborhood && (
+              <div className="flex items-center gap-1 text-rose-400 text-sm mb-3">
+                <MapPin className="w-4 h-4" />
+                {profile.neighborhood}
+              </div>
             )}
 
             {profile.bio && (
-              <p className="text-slate-300 mt-4 leading-relaxed">{profile.bio}</p>
+              <p className="text-slate-300 text-sm leading-relaxed mb-3">
+                {profile.bio}
+              </p>
             )}
 
             {prompts.length > 0 && (
-              <div className="space-y-2 mt-5">
+              <div className="space-y-2 mt-2">
                 {prompts.map((p, i) => (
-                  <div key={i} className="bg-slate-800/60 rounded-xl px-3 py-2.5">
+                  <div
+                    key={i}
+                    className="bg-slate-800/60 rounded-xl px-3 py-2.5"
+                  >
                     <p className="text-[11px] text-slate-500 mb-0.5">{p.q}</p>
                     <p className="text-sm text-slate-200">{p.a}</p>
                   </div>

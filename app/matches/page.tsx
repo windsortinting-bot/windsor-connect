@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, MessageCircle, MapPin } from "lucide-react";
+import { Heart, MessageCircle, MapPin, Clock } from "lucide-react";
 
 interface MatchItem {
   matchId: string;
@@ -13,6 +13,8 @@ interface MatchItem {
   neighborhood: string | null;
   photo: string | null;
   lastActiveAt: string | null;
+  expiresAt: string | null;
+  hasMessages: boolean;
 }
 
 function lastActiveLabel(iso: string | null) {
@@ -27,6 +29,18 @@ function lastActiveLabel(iso: string | null) {
   if (days === 1) return "Active yesterday";
   if (days < 7) return `Active ${days}d ago`;
   return null;
+}
+
+function expiryLabel(expiresAt: string | null, hasMessages: boolean) {
+  if (hasMessages || !expiresAt) return null;
+  const end = new Date(expiresAt).getTime();
+  const left = end - Date.now();
+  if (left <= 0) return "Expired soon — message to keep";
+  const hours = Math.floor(left / 3600000);
+  if (hours < 1) return "Expires in under 1 hour";
+  if (hours < 24) return `Expires in ${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `Expires in ${days}d`;
 }
 
 export default function MatchesPage() {
@@ -55,7 +69,7 @@ export default function MatchesPage() {
 
       const { data: matchRows, error } = await supabase
         .from("matches")
-        .select("id, user1_id, user2_id, created_at")
+        .select("id, user1_id, user2_id, created_at, expires_at")
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
@@ -91,12 +105,17 @@ export default function MatchesPage() {
         .in("id", otherIds);
 
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-
       const items: MatchItem[] = [];
+
       for (const m of unique) {
         const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
         const p = profileMap.get(otherId);
         if (!p) continue;
+
+        const { count } = await supabase
+          .from("messages")
+          .select("*", { count: "exact", head: true })
+          .eq("match_id", m.id);
 
         items.push({
           matchId: m.id,
@@ -106,6 +125,8 @@ export default function MatchesPage() {
           neighborhood: p.neighborhood,
           photo: p.photo_urls?.[0] || null,
           lastActiveAt: p.last_active_at || null,
+          expiresAt: m.expires_at || null,
+          hasMessages: (count ?? 0) > 0,
         });
       }
 
@@ -123,7 +144,11 @@ export default function MatchesPage() {
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
 
-  const handleBlock = async (matchId: string, otherId: string, name: string) => {
+  const handleBlock = async (
+    matchId: string,
+    otherId: string,
+    name: string
+  ) => {
     if (!userId) return;
     if (!confirm(`Block ${name}?`)) return;
     await supabase.from("blocks").insert({
@@ -168,6 +193,7 @@ export default function MatchesPage() {
           <div className="space-y-3">
             {matches.map((m) => {
               const active = lastActiveLabel(m.lastActiveAt);
+              const exp = expiryLabel(m.expiresAt, m.hasMessages);
               return (
                 <div
                   key={m.matchId}
@@ -209,6 +235,12 @@ export default function MatchesPage() {
                       {active && (
                         <p className="text-xs text-emerald-400/90 mt-1">
                           {active}
+                        </p>
+                      )}
+                      {exp && (
+                        <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {exp}
                         </p>
                       )}
                       <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
