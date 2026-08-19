@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { Heart } from "lucide-react";
 
 export default function AuthPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,15 +18,19 @@ export default function AuthPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (searchParams.get("error") === "confirm") {
-      setMessage("Email confirmation failed. Try signing in or request a new link.");
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "confirm") {
+      setMessage(
+        "Email confirmation failed. Try signing in or request a new link."
+      );
       setStatus("error");
     }
-  }, [searchParams]);
+  }, []);
 
   const validateInviteCode = async (raw: string) => {
     const code = raw.trim().toUpperCase();
-    if (!code) return { ok: false, error: "Invite code required for signup" };
+    if (!code) return { ok: false as const, error: "Invite code required for signup" };
 
     const { data, error } = await supabase
       .from("invite_codes")
@@ -37,12 +40,12 @@ export default function AuthPage() {
       .maybeSingle();
 
     if (error || !data) {
-      return { ok: false, error: "Invalid invite code" };
+      return { ok: false as const, error: "Invalid invite code" };
     }
     if (data.used_count >= data.max_uses) {
-      return { ok: false, error: "This invite code is full" };
+      return { ok: false as const, error: "This invite code is full" };
     }
-    return { ok: true, row: data };
+    return { ok: true as const, row: data };
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -232,10 +235,16 @@ export default function AuthPage() {
         </div>
 
         <div className="mt-6 flex justify-center gap-4 text-xs text-slate-600">
-          <button onClick={() => router.push("/terms")} className="hover:text-slate-400">
+          <button
+            onClick={() => router.push("/terms")}
+            className="hover:text-slate-400"
+          >
             Terms
           </button>
-          <button onClick={() => router.push("/privacy")} className="hover:text-slate-400">
+          <button
+            onClick={() => router.push("/privacy")}
+            className="hover:text-slate-400"
+          >
             Privacy
           </button>
           <button onClick={() => router.push("/")} className="hover:text-slate-400">
