@@ -2,23 +2,18 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
-import { timeAgo } from "../../../lib/format";
+import { supabase } from "../../lib/supabaseClient";
+import { trackEvent } from "../../lib/analytics";
 import { ArrowLeft, Star } from "lucide-react";
 
-interface FeedbackRow {
-  id: string;
-  rating: number | null;
-  body: string | null;
-  created_at: string;
-  user_id: string | null;
-}
-
-export default function AdminFeedbackPage() {
+export default function FeedbackPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [denied, setDenied] = useState(false);
-  const [rows, setRows] = useState<FeedbackRow[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [rating, setRating] = useState(0);
+  const [body, setBody] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
+    "idle"
+  );
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -30,95 +25,114 @@ export default function AdminFeedbackPage() {
         router.push("/auth");
         return;
       }
-
-      const { data: me } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .single();
-
-      if (!me?.is_admin) {
-        setDenied(true);
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("feedback")
-        .select("id, rating, body, created_at, user_id")
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (error) setMessage(error.message);
-      else setRows((data as FeedbackRow[]) || []);
-      setLoading(false);
+      setUserId(user.id);
     };
     load();
   }, [router]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        Loading feedback...
-      </div>
-    );
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId || rating < 1) {
+      setStatus("error");
+      setMessage("Please choose a rating");
+      return;
+    }
 
-  if (denied) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        Admin access required.
-      </div>
-    );
-  }
+    setStatus("loading");
+    setMessage("");
+
+    const { error } = await supabase.from("feedback").insert({
+      user_id: userId,
+      rating,
+      body: body.trim() || null,
+    });
+
+    if (error) {
+      setStatus("error");
+      setMessage(error.message);
+      return;
+    }
+
+    await trackEvent("feedback_submitted", { rating });
+    setStatus("success");
+    setMessage("Thanks — feedback received.");
+    setBody("");
+    setRating(0);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
-          onClick={() => router.push("/admin/links")}
+          onClick={() => router.back()}
           className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          Admin menu
+          Back
         </button>
 
         <h1 className="text-3xl font-bold mb-2">Feedback</h1>
-        <p className="text-slate-500 text-sm mb-6">{rows.length} responses</p>
+        <p className="text-slate-500 text-sm mb-8">
+          Help improve Windsor Connect during soft launch
+        </p>
 
         {message && (
-          <p className="mb-4 text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+          <p
+            className={`mb-4 text-sm rounded-xl px-4 py-3 border ${
+              status === "success"
+                ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                : "text-rose-400 bg-rose-500/10 border-rose-500/20"
+            }`}
+          >
             {message}
           </p>
         )}
 
-        <div className="space-y-3">
-          {rows.map((r) => (
-            <div
-              key={r.id}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-4"
-            >
-              <div className="flex items-center gap-1 mb-2">
-                {[1, 2, 3, 4, 5].map((n) => (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <p className="text-sm text-slate-400 mb-3">Rating</p>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRating(n)}
+                  className="p-2"
+                >
                   <Star
-                    key={n}
-                    className={`w-4 h-4 ${
-                      n <= (r.rating || 0)
+                    className={`w-7 h-7 ${
+                      n <= rating
                         ? "text-amber-400 fill-amber-400"
-                        : "text-slate-700"
+                        : "text-slate-600"
                     }`}
                   />
-                ))}
-                <span className="text-xs text-slate-500 ml-2">
-                  {timeAgo(r.created_at)}
-                </span>
-              </div>
-              <p className="text-sm text-slate-300 whitespace-pre-wrap">
-                {r.body || "No comment"}
-              </p>
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 block mb-2">
+              Comments (optional)
+            </label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={5}
+              maxLength={1000}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
+              placeholder="What should we improve?"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={status === "loading"}
+            className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-60 text-white font-semibold py-3 rounded-xl"
+          >
+            {status === "loading" ? "Sending..." : "Submit feedback"}
+          </button>
+        </form>
       </div>
     </div>
   );
