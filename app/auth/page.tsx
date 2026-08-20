@@ -26,6 +26,11 @@ export default function AuthPage() {
       );
       setStatus("error");
     }
+    const code = params.get("code");
+    if (code) {
+      setInviteCode(code.toUpperCase());
+      setIsLogin(false);
+    }
   }, []);
 
   const validateInviteCode = async (raw: string) => {
@@ -76,7 +81,10 @@ export default function AuthPage() {
 
       await supabase
         .from("profiles")
-        .update({ last_active_at: new Date().toISOString() })
+        .update({
+          last_active_at: new Date().toISOString(),
+          last_login_at: new Date().toISOString(),
+        })
         .eq("id", userId);
 
       const { data: profile } = await supabase
@@ -88,12 +96,11 @@ export default function AuthPage() {
       setStatus("success");
       setMessage("Logged in successfully!");
 
+      // After login: incomplete profile → onboarding, otherwise → profile page
       if (!profile?.is_onboarded) {
         router.push("/onboarding");
-      } else if (!profile?.seen_welcome) {
-        router.push("/welcome");
       } else {
-        router.push("/swipe");
+        router.push("/profile");
       }
     } else {
       const check = await validateInviteCode(inviteCode);
@@ -213,6 +220,18 @@ export default function AuthPage() {
               : "Create Account"}
           </button>
         </form>
+
+        {isLogin && (
+          <div className="mt-3 text-center">
+            <button
+              type="button"
+              onClick={() => router.push("/auth/forgot-password")}
+              className="text-sm text-slate-500 hover:text-slate-300"
+            >
+              Forgot password?
+            </button>
+          </div>
+        )}
 
         {message && (
           <p

@@ -10,14 +10,16 @@ const LINKS = [
   { href: "/admin/checklist", label: "Soft-launch checklist" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/support", label: "Support inbox" },
+  { href: "/admin/feedback", label: "User feedback" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/invites", label: "Invite codes" },
   { href: "/admin/waitlist", label: "Waitlist" },
   { href: "/admin/flags", label: "Feature flags" },
   { href: "/admin/events", label: "Events" },
   { href: "/admin/notes", label: "Ops notes" },
-  { href: "/neighborhoods", label: "Neighbourhoods page" },
-  { href: "/icebreakers", label: "Icebreakers page" },
+  { href: "/resources", label: "Resources hub" },
+  { href: "/status", label: "Public status" },
+  { href: "/feedback", label: "Feedback form" },
   { href: "/join", label: "Invite landing" },
 ];
 
