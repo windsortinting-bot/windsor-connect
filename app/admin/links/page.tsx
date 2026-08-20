@@ -8,10 +8,14 @@ import { ArrowLeft } from "lucide-react";
 const LINKS = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/reports", label: "Reports" },
-  { href: "/admin/invites", label: "Invite codes" },
+  { href: "/admin/support", label: "Support inbox" },
   { href: "/admin/users", label: "Users" },
+  { href: "/admin/invites", label: "Invite codes" },
   { href: "/admin/waitlist", label: "Waitlist" },
   { href: "/admin/flags", label: "Feature flags" },
+  { href: "/admin/events", label: "Events" },
+  { href: "/about", label: "About page" },
+  { href: "/date-ideas", label: "Date ideas" },
 ];
 
 export default function AdminLinksPage() {
