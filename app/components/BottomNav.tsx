@@ -18,6 +18,7 @@ const HIDDEN_PREFIXES = [
   "/terms",
   "/privacy",
   "/offline",
+  "/maintenance",
 ];
 
 export default function BottomNav() {
@@ -44,59 +45,64 @@ export default function BottomNav() {
     let cancelled = false;
 
     const loadCounts = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
 
-      const { data: mySwipes } = await supabase
-        .from("swipes")
-        .select("target_id")
-        .eq("swiper_id", user.id);
+        const { data: mySwipes } = await supabase
+          .from("swipes")
+          .select("target_id")
+          .eq("swiper_id", user.id);
 
-      const mySwipeIds = new Set((mySwipes || []).map((s) => s.target_id));
+        const mySwipeIds = new Set((mySwipes || []).map((s) => s.target_id));
 
-      const { data: incoming } = await supabase
-        .from("swipes")
-        .select("swiper_id")
-        .eq("target_id", user.id)
-        .eq("action", "like");
+        const { data: incoming } = await supabase
+          .from("swipes")
+          .select("swiper_id")
+          .eq("target_id", user.id)
+          .eq("action", "like");
 
-      const pendingLikes = (incoming || []).filter(
-        (s) => !mySwipeIds.has(s.swiper_id)
-      ).length;
+        const pendingLikes = (incoming || []).filter(
+          (s) => !mySwipeIds.has(s.swiper_id)
+        ).length;
 
-      const { count: matchCount } = await supabase
-        .from("matches")
-        .select("*", { count: "exact", head: true })
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+        const { data: matches } = await supabase
+          .from("matches")
+          .select(
+            "id, user1_id, user2_id, last_message_at, user1_last_read_at, user2_last_read_at"
+          )
+          .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
-      const { data: matches } = await supabase
-        .from("matches")
-        .select(
-          "id, user1_id, user2_id, last_message_at, user1_last_read_at, user2_last_read_at"
-        )
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+        // Unique people only (fixes 4 badge vs 2 on page)
+        const uniqueOthers = new Set<string>();
+        let unread = 0;
 
-      let unread = 0;
-      for (const m of matches || []) {
-        if (!m.last_message_at) continue;
-        const lastRead =
-          m.user1_id === user.id
-            ? m.user1_last_read_at
-            : m.user2_last_read_at;
-        if (
-          !lastRead ||
-          new Date(m.last_message_at) > new Date(lastRead)
-        ) {
-          unread += 1;
+        for (const m of matches || []) {
+          const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
+          uniqueOthers.add(otherId);
+
+          if (!m.last_message_at) continue;
+          const lastRead =
+            m.user1_id === user.id
+              ? m.user1_last_read_at
+              : m.user2_last_read_at;
+          if (
+            !lastRead ||
+            new Date(m.last_message_at) > new Date(lastRead)
+          ) {
+            unread += 1;
+          }
         }
-      }
 
-      if (!cancelled) {
-        setLikesCount(pendingLikes);
-        setMatchesCount(matchCount ?? 0);
-        setUnreadCount(unread);
+        if (!cancelled) {
+          setLikesCount(pendingLikes);
+          setMatchesCount(uniqueOthers.size);
+          setUnreadCount(unread);
+        }
+      } catch {
+        // ignore badge errors
       }
     };
 
