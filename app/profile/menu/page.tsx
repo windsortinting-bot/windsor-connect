@@ -8,21 +8,28 @@ import { ArrowLeft } from "lucide-react";
 
 const LINKS = [
   { href: "/profile", label: "My profile" },
+  { href: "/welcome-back", label: "Welcome back" },
   { href: "/onboarding", label: "Edit profile" },
+  { href: "/profile-checklist", label: "Profile checklist" },
   { href: "/stats", label: "Your stats" },
   { href: "/first-week", label: "First-week plan" },
+  { href: "/notes", label: "Private notes" },
+  { href: "/ideas", label: "Date ideas" },
   { href: "/photo-tips", label: "Photo tips" },
   { href: "/settings", label: "Settings" },
+  { href: "/quiet-hours", label: "Quiet hours" },
+  { href: "/security", label: "Security" },
   { href: "/pause", label: "Pause profile" },
   { href: "/filters", label: "Discovery filters" },
   { href: "/activity", label: "Activity" },
   { href: "/refer", label: "Invite friends" },
+  { href: "/install", label: "Install app" },
   { href: "/resources", label: "Resources" },
+  { href: "/faq", label: "FAQ" },
   { href: "/feedback", label: "Send feedback" },
   { href: "/bug-report", label: "Report a bug" },
   { href: "/settings/export", label: "Export my data" },
   { href: "/delete-account", label: "Delete account" },
-  { href: "/accessibility", label: "Accessibility" },
 ];
 
 export default function ProfileMenuPage() {
