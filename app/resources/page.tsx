@@ -7,23 +7,30 @@ import { ArrowLeft } from "lucide-react";
 const LINKS = [
   { href: "/about", label: "About Windsor Connect" },
   { href: "/whats-new", label: "What’s new" },
+  { href: "/roadmap", label: "Roadmap" },
+  { href: "/brand", label: "Brand basics" },
   { href: "/first-week", label: "First-week plan" },
+  { href: "/profile-checklist", label: "Profile checklist" },
+  { href: "/ideas", label: "Date ideas" },
+  { href: "/saved-ideas", label: "Saved date ideas" },
+  { href: "/conversation-starters", label: "Conversation starters" },
   { href: "/guidelines", label: "Community guidelines" },
+  { href: "/moderation", label: "Moderation policy" },
   { href: "/safety", label: "Safety tips" },
   { href: "/meet-safe", label: "Meet safely checklist" },
   { href: "/tips", label: "Dating tips" },
   { href: "/photo-tips", label: "Photo tips" },
-  { href: "/date-ideas", label: "Local date ideas" },
   { href: "/neighborhoods", label: "Neighbourhoods" },
-  { href: "/icebreakers", label: "Icebreakers" },
+  { href: "/data-use", label: "How we use data" },
+  { href: "/cookies", label: "Cookies & storage" },
+  { href: "/accessibility", label: "Accessibility" },
+  { href: "/age-notice", label: "Age requirement" },
+  { href: "/press", label: "Press & partners" },
   { href: "/help", label: "Help & FAQ" },
   { href: "/support", label: "Contact support" },
   { href: "/feedback", label: "Send feedback" },
   { href: "/bug-report", label: "Report a bug" },
   { href: "/security", label: "Security" },
-  { href: "/cookies", label: "Cookies & storage" },
-  { href: "/accessibility", label: "Accessibility" },
-  { href: "/age-notice", label: "Age requirement" },
   { href: "/terms", label: "Terms" },
   { href: "/privacy", label: "Privacy" },
   { href: "/status", label: "Service status" },
@@ -45,7 +52,7 @@ export default function ResourcesPage() {
 
         <h1 className="text-3xl font-bold mb-2">Resources</h1>
         <p className="text-slate-500 text-sm mb-8">
-          Help, safety, and local guides
+          Help, safety, local guides, and policies
         </p>
 
         <div className="space-y-3">

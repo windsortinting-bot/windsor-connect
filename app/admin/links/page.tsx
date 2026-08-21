@@ -8,11 +8,13 @@ import { ArrowLeft } from "lucide-react";
 
 const LINKS = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/overview", label: "Overview counts" },
   { href: "/admin/checklist", label: "Soft-launch checklist" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/support", label: "Support inbox" },
   { href: "/admin/feedback", label: "User feedback" },
   { href: "/admin/bugs", label: "Bug reports" },
+  { href: "/admin/press", label: "Press leads" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/invites", label: "Invite codes" },
   { href: "/admin/waitlist", label: "Waitlist" },
