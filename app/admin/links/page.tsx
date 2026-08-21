@@ -16,12 +16,14 @@ const LINKS = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/invites", label: "Invite codes" },
   { href: "/admin/waitlist", label: "Waitlist" },
+  { href: "/admin/referrals", label: "Referrals" },
+  { href: "/admin/changelog", label: "Changelog" },
   { href: "/admin/flags", label: "Feature flags" },
   { href: "/admin/events", label: "Events" },
   { href: "/admin/notes", label: "Ops notes" },
+  { href: "/whats-new", label: "Public what’s new" },
   { href: "/resources", label: "Resources hub" },
   { href: "/status", label: "Public status" },
-  { href: "/bug-report", label: "Bug report form" },
 ];
 
 export default function AdminLinksPage() {
@@ -51,7 +53,7 @@ export default function AdminLinksPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-700">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
         Loading...
       </div>
     );
@@ -59,7 +61,7 @@ export default function AdminLinksPage() {
 
   if (denied) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-700">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
         Admin access required.
       </div>
     );
