@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /join
+Allow: /guidelines
+Allow: /safety
+Allow: /terms
+Allow: /privacy
+Disallow: /admin
+Disallow: /api/
+Disallow: /settings
+Disallow: /messages
+Disallow: /chat
+Disallow: /swipe
+Disallow: /likes
+Disallow: /matches
+Disallow: /profile
+
+Sitemap: https://windsor-connect-omega.vercel.app/sitemap.xml

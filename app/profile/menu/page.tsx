@@ -9,15 +9,20 @@ import { ArrowLeft } from "lucide-react";
 const LINKS = [
   { href: "/profile", label: "My profile" },
   { href: "/onboarding", label: "Edit profile" },
+  { href: "/stats", label: "Your stats" },
+  { href: "/first-week", label: "First-week plan" },
+  { href: "/photo-tips", label: "Photo tips" },
   { href: "/settings", label: "Settings" },
+  { href: "/pause", label: "Pause profile" },
   { href: "/filters", label: "Discovery filters" },
   { href: "/activity", label: "Activity" },
+  { href: "/refer", label: "Invite friends" },
   { href: "/resources", label: "Resources" },
   { href: "/feedback", label: "Send feedback" },
   { href: "/bug-report", label: "Report a bug" },
-  { href: "/notifications-help", label: "Notifications help" },
   { href: "/settings/export", label: "Export my data" },
-  { href: "/invite", label: "Invite friends" },
+  { href: "/delete-account", label: "Delete account" },
+  { href: "/accessibility", label: "Accessibility" },
 ];
 
 export default function ProfileMenuPage() {
@@ -40,7 +45,7 @@ export default function ProfileMenuPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-700">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
         Loading...
       </div>
     );
@@ -64,7 +69,9 @@ export default function ProfileMenuPage() {
             <button
               key={l.href}
               onClick={() => router.push(l.href)}
-              className="w-full bg-white border border-slate-200 hover:bg-slate-50 rounded-xl py-3 text-sm text-left px-4"
+              className={`w-full bg-white border border-slate-200 hover:bg-slate-50 rounded-xl py-3 text-sm text-left px-4 ${
+                l.href === "/delete-account" ? "text-rose-600" : ""
+              }`}
             >
               {l.label}
             </button>

@@ -1,15 +1,29 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://windsor-connect.vercel.app";
+  const base = "https://windsor-connect-omega.vercel.app";
 
-  return [
-    { url: `${base}/`, lastModified: new Date(), changeFrequency: "weekly", priority: 1 },
-    { url: `${base}/auth`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
-    { url: `${base}/terms`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
-    { url: `${base}/privacy`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
-    { url: `${base}/help`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.4 },
+  const paths = [
+    "",
+    "/about",
+    "/join",
+    "/guidelines",
+    "/safety",
+    "/tips",
+    "/date-ideas",
+    "/neighborhoods",
+    "/help",
+    "/support",
+    "/terms",
+    "/privacy",
+    "/accessibility",
+    "/status",
   ];
+
+  return paths.map((path) => ({
+    url: `${base}${path}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: path === "" ? 1 : 0.6,
+  }));
 }
