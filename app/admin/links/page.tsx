@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import LogoutButton from "../../components/LogoutButton";
 import { ArrowLeft } from "lucide-react";
 
 const LINKS = [
@@ -11,6 +12,7 @@ const LINKS = [
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/support", label: "Support inbox" },
   { href: "/admin/feedback", label: "User feedback" },
+  { href: "/admin/bugs", label: "Bug reports" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/invites", label: "Invite codes" },
   { href: "/admin/waitlist", label: "Waitlist" },
@@ -19,8 +21,7 @@ const LINKS = [
   { href: "/admin/notes", label: "Ops notes" },
   { href: "/resources", label: "Resources hub" },
   { href: "/status", label: "Public status" },
-  { href: "/feedback", label: "Feedback form" },
-  { href: "/join", label: "Invite landing" },
+  { href: "/bug-report", label: "Bug report form" },
 ];
 
 export default function AdminLinksPage() {
@@ -50,7 +51,7 @@ export default function AdminLinksPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-700">
         Loading...
       </div>
     );
@@ -58,29 +59,34 @@ export default function AdminLinksPage() {
 
   if (denied) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-700">
         Admin access required.
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
+    <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
           onClick={() => router.push("/admin")}
-          className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
           Admin
         </button>
-        <h1 className="text-3xl font-bold mb-6">Admin menu</h1>
+
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Admin menu</h1>
+          <LogoutButton />
+        </div>
+
         <div className="space-y-3">
           {LINKS.map((l) => (
             <button
               key={l.href}
               onClick={() => router.push(l.href)}
-              className="w-full bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl py-3 text-sm"
+              className="w-full bg-white border border-slate-200 hover:bg-slate-50 rounded-xl py-3 text-sm text-left px-4"
             >
               {l.label}
             </button>
