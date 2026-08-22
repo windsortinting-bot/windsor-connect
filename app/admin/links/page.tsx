@@ -11,7 +11,9 @@ const LINKS = [
   { href: "/admin/overview", label: "Overview counts" },
   { href: "/admin/health", label: "System health" },
   { href: "/admin/checklist", label: "Soft-launch checklist" },
+  { href: "/admin/launch-notes", label: "Launch scratchpad" },
   { href: "/admin/announcements", label: "Announcements" },
+  { href: "/admin/daily-prompts", label: "Daily prompts" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/support", label: "Support inbox" },
   { href: "/admin/feedback", label: "User feedback" },
@@ -26,7 +28,6 @@ const LINKS = [
   { href: "/admin/flags", label: "Feature flags" },
   { href: "/admin/events", label: "Events" },
   { href: "/admin/notes", label: "Ops notes" },
-  { href: "/announcements", label: "Public announcements" },
   { href: "/resources", label: "Resources hub" },
   { href: "/status", label: "Public status" },
 ];
