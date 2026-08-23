@@ -1,287 +1,219 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { Heart, MessageCircle, MapPin, Clock } from "lucide-react";
+import { unmatchSafe } from "../../lib/matching";
+import EmptyState from "../components/EmptyState";
+import { MessageCircle, MapPin } from "lucide-react";
 
-interface MatchItem {
+type MatchCard = {
   matchId: string;
   otherId: string;
-  firstName: string;
+  first_name: string;
   age: number | null;
   neighborhood: string | null;
   photo: string | null;
-  lastActiveAt: string | null;
-  expiresAt: string | null;
-  hasMessages: boolean;
-}
-
-function lastActiveLabel(iso: string | null) {
-  if (!iso) return null;
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 15) return "Active now";
-  if (mins < 60) return `Active ${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `Active ${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "Active yesterday";
-  if (days < 7) return `Active ${days}d ago`;
-  return null;
-}
-
-function expiryLabel(expiresAt: string | null, hasMessages: boolean) {
-  if (hasMessages || !expiresAt) return null;
-  const end = new Date(expiresAt).getTime();
-  const left = end - Date.now();
-  if (left <= 0) return "Expired soon — message to keep";
-  const hours = Math.floor(left / 3600000);
-  if (hours < 1) return "Expires in under 1 hour";
-  if (hours < 24) return `Expires in ${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `Expires in ${days}d`;
-}
+};
 
 export default function MatchesPage() {
   const router = useRouter();
-  const [matches, setMatches] = useState<MatchItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [matches, setMatches] = useState<MatchCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const load = async (uid: string) => {
+    setErrorMsg("");
 
-      if (!user) {
-        router.push("/auth");
-        return;
-      }
+    const { data, error } = await supabase
+      .from("matches")
+      .select(
+        `
+        id,
+        user1_id,
+        user2_id,
+        created_at,
+        user1:profiles!matches_user1_id_fkey ( id, first_name, age, neighborhood, photo_urls ),
+        user2:profiles!matches_user2_id_fkey ( id, first_name, age, neighborhood, photo_urls )
+      `
+      )
+      .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
+      .order("created_at", { ascending: false });
 
-      setUserId(user.id);
-
-      await supabase
-        .from("profiles")
-        .update({ last_active_at: new Date().toISOString() })
-        .eq("id", user.id);
-
-      const { data: matchRows, error } = await supabase
+    if (error) {
+      // Fallback without embeds if FK names differ
+      const { data: plain, error: plainErr } = await supabase
         .from("matches")
-        .select("id, user1_id, user2_id, created_at, expires_at")
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .select("id, user1_id, user2_id, created_at")
+        .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Match query error:", error);
-        setLoading(false);
-        return;
-      }
-
-      if (!matchRows || matchRows.length === 0) {
+      if (plainErr) {
+        setErrorMsg(plainErr.message);
         setMatches([]);
         setLoading(false);
         return;
       }
 
+      const cards: MatchCard[] = [];
       const seen = new Set<string>();
-      const unique: typeof matchRows = [];
-      for (const m of matchRows) {
-        const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
-        if (!seen.has(otherId)) {
-          seen.add(otherId);
-          unique.push(m);
-        }
-      }
 
-      const otherIds = unique.map((m) =>
-        m.user1_id === user.id ? m.user2_id : m.user1_id
-      );
+      for (const m of plain || []) {
+        const otherId = m.user1_id === uid ? m.user2_id : m.user1_id;
+        if (seen.has(otherId)) continue;
+        seen.add(otherId);
 
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, first_name, age, neighborhood, photo_urls, last_active_at")
-        .in("id", otherIds);
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("id, first_name, age, neighborhood, photo_urls")
+          .eq("id", otherId)
+          .single();
 
-      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-      const items: MatchItem[] = [];
-
-      for (const m of unique) {
-        const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
-        const p = profileMap.get(otherId);
         if (!p) continue;
-
-        const { count } = await supabase
-          .from("messages")
-          .select("*", { count: "exact", head: true })
-          .eq("match_id", m.id);
-
-        items.push({
+        cards.push({
           matchId: m.id,
           otherId,
-          firstName: p.first_name,
+          first_name: p.first_name,
           age: p.age,
           neighborhood: p.neighborhood,
           photo: p.photo_urls?.[0] || null,
-          lastActiveAt: p.last_active_at || null,
-          expiresAt: m.expires_at || null,
-          hasMessages: (count ?? 0) > 0,
         });
       }
 
-      setMatches(items);
+      setMatches(cards);
       setLoading(false);
-    };
+      return;
+    }
 
-    load();
+    const cards: MatchCard[] = [];
+    const seen = new Set<string>();
+
+    for (const m of data || []) {
+      const other =
+        (m as any).user1_id === uid ? (m as any).user2 : (m as any).user1;
+      if (!other?.id || seen.has(other.id)) continue;
+      seen.add(other.id);
+
+      cards.push({
+        matchId: (m as any).id,
+        otherId: other.id,
+        first_name: other.first_name,
+        age: other.age,
+        neighborhood: other.neighborhood,
+        photo: other.photo_urls?.[0] || null,
+      });
+    }
+
+    setMatches(cards);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
+      setUserId(user.id);
+      await load(user.id);
+    };
+    init();
   }, [router]);
 
   const handleUnmatch = async (matchId: string) => {
     if (!userId) return;
-    if (!confirm("Unmatch this person? Chat history will be removed.")) return;
+    const ok = window.confirm("Unmatch this person?");
+    if (!ok) return;
 
-    await supabase.from("messages").delete().eq("match_id", matchId);
-    await supabase.from("matches").delete().eq("id", matchId);
-    setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
-  };
+    const success = await unmatchSafe(matchId, userId);
+    if (!success) {
+      setErrorMsg("Could not unmatch. Try again.");
+      return;
+    }
 
-  const handleBlock = async (
-    matchId: string,
-    otherId: string,
-    name: string
-  ) => {
-    if (!userId) return;
-    if (!confirm(`Block ${name}?`)) return;
-
-    await supabase.from("blocks").insert({
-      blocker_id: userId,
-      blocked_id: otherId,
-    });
-    await supabase.from("messages").delete().eq("match_id", matchId);
-    await supabase.from("matches").delete().eq("id", matchId);
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
         Loading matches...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
+    <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-6 pb-28">
       <div className="max-w-md mx-auto">
-        <h1 className="text-3xl font-bold mb-2">Matches</h1>
-        <p className="text-slate-500 text-sm mb-6">
-          {matches.length} match{matches.length === 1 ? "" : "es"}
-        </p>
+        <h1 className="text-2xl font-bold mb-1">Matches</h1>
+        <p className="text-sm text-slate-500 mb-6">{matches.length} people</p>
+
+        {errorMsg && (
+          <p className="mb-4 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+            {errorMsg}
+          </p>
+        )}
 
         {matches.length === 0 ? (
-          <div className="text-center py-20">
-            <Heart className="w-16 h-16 text-rose-500 mx-auto mb-4" />
-            <p className="text-slate-300 text-lg font-medium">No matches yet</p>
-            <p className="text-slate-500 text-sm mt-2">
-              Keep swiping — matches will show up here.
-            </p>
-            <button
-              onClick={() => router.push("/swipe")}
-              className="mt-6 bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-xl text-sm"
-            >
-              Go to Swipe
-            </button>
-          </div>
+          <EmptyState
+            title="No matches yet"
+            body="When you both like each other, you’ll appear here."
+            actionLabel="Start swiping"
+            onAction={() => router.push("/swipe")}
+          />
         ) : (
           <div className="space-y-3">
-            {matches.map((m) => {
-              const active = lastActiveLabel(m.lastActiveAt);
-              const exp = expiryLabel(m.expiresAt, m.hasMessages);
-              return (
-                <div
-                  key={m.matchId}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4"
+            {matches.map((m) => (
+              <div
+                key={m.matchId}
+                className="bg-white border border-slate-200 rounded-2xl p-3 flex gap-3"
+              >
+                <button
+                  onClick={() => router.push(`/u/${m.otherId}`)}
+                  className="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 flex-shrink-0"
                 >
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/chat/${m.matchId}`)}
-                    className="w-full flex items-center gap-3 text-left"
-                  >
-                    <div className="relative w-16 h-16 rounded-full overflow-hidden bg-slate-800 flex-shrink-0">
-                      {m.photo ? (
-                        <img
-                          src={m.photo}
-                          alt={m.firstName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Heart className="w-7 h-7 text-slate-600" />
-                        </div>
-                      )}
-                      {active === "Active now" && (
-                        <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-slate-900" />
-                      )}
-                    </div>
+                  {m.photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={m.photo}
+                      alt={m.first_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : null}
+                </button>
 
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white text-lg">
-                        {m.firstName}
-                        {m.age ? `, ${m.age}` : ""}
-                      </p>
-                      {m.neighborhood && (
-                        <div className="flex items-center gap-1 text-rose-400 text-sm mt-0.5">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {m.neighborhood}
-                        </div>
-                      )}
-                      {active && (
-                        <p className="text-xs text-emerald-400/90 mt-1">
-                          {active}
-                        </p>
-                      )}
-                      {exp && (
-                        <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {exp}
-                        </p>
-                      )}
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        Click here to chat
-                      </p>
-                    </div>
-                  </button>
+                <button
+                  onClick={() => router.push(`/chat/${m.matchId}`)}
+                  className="flex-1 text-left min-w-0"
+                >
+                  <p className="font-semibold truncate">
+                    {m.first_name}
+                    {m.age ? `, ${m.age}` : ""}
+                  </p>
+                  {m.neighborhood && (
+                    <p className="text-xs text-rose-600 mt-0.5 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {m.neighborhood}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    Click here to chat
+                  </p>
+                </button>
 
-                  <div className="flex gap-3 mt-4 pt-3 border-t border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/profile/${m.otherId}`)}
-                      className="flex-1 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-xl py-2"
-                    >
-                      View profile
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUnmatch(m.matchId)}
-                      className="flex-1 text-sm text-slate-400 hover:text-rose-400 border border-slate-700 rounded-xl py-2"
-                    >
-                      Unmatch
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleBlock(m.matchId, m.otherId, m.firstName)
-                      }
-                      className="flex-1 text-sm text-slate-400 hover:text-rose-400 border border-slate-700 rounded-xl py-2"
-                    >
-                      Block
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                <button
+                  onClick={() => handleUnmatch(m.matchId)}
+                  className="text-xs text-slate-500 hover:text-rose-600 self-start mt-1"
+                >
+                  Unmatch
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
