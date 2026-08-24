@@ -3,101 +3,91 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import {
+  ChatMessage,
+  getMatchParticipant,
+  loadMessages,
+  markIncomingRead,
+  normalizeMessage,
+  sendMessage,
+} from "../../../lib/chat";
+import { broadcastTyping, joinTypingChannel } from "../../../lib/typing";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
-
-type Msg = {
-  id: string;
-  sender_id: string;
-  body: string;
-  created_at: string;
-};
 
 export default function ChatPage() {
   const router = useRouter();
   const params = useParams();
   const matchId = String(params?.matchId || "");
+
   const [userId, setUserId] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("Match");
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [allowed, setAllowed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [otherTyping, setOtherTyping] = useState(false);
+  const [connected, setConnected] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const typingChannelRef = useRef<RealtimeChannel | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef(0);
 
   useEffect(() => {
     const init = async () => {
+      setErrorMsg("");
+      setLoading(true);
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       if (!user) {
         router.push("/auth");
         return;
       }
+
       setUserId(user.id);
 
-      const { data: match, error } = await supabase
-        .from("matches")
-        .select("id, user1_id, user2_id")
-        .eq("id", matchId)
-        .maybeSingle();
-
-      if (error || !match) {
-        setErrorMsg("This match no longer exists.");
+      if (!matchId || matchId === "undefined") {
+        setErrorMsg("Invalid chat link.");
         setLoading(false);
         return;
       }
 
-      if (match.user1_id !== user.id && match.user2_id !== user.id) {
-        setErrorMsg("You are not part of this match.");
-        setLoading(false);
-        return;
+      try {
+        const participant = await getMatchParticipant(matchId, user.id);
+        if (!participant) {
+          setErrorMsg("This match no longer exists or you are not a participant.");
+          setLoading(false);
+          return;
+        }
+
+        setOtherName(participant.otherName);
+        setAllowed(true);
+
+        const msgs = await loadMessages(matchId);
+        setMessages(msgs);
+        await markIncomingRead(matchId, user.id);
+      } catch (err: any) {
+        setErrorMsg(err?.message || "Could not open chat");
       }
 
-      const otherId =
-        match.user1_id === user.id ? match.user2_id : match.user1_id;
-
-      const { data: block } = await supabase
-        .from("blocks")
-        .select("id")
-        .or(
-          `and(blocker_id.eq.${user.id},blocked_id.eq.${otherId}),and(blocker_id.eq.${otherId},blocked_id.eq.${user.id})`
-        )
-        .maybeSingle();
-
-      if (block) {
-        setErrorMsg("Chat unavailable due to a block.");
-        setLoading(false);
-        return;
-      }
-
-      const { data: other } = await supabase
-        .from("profiles")
-        .select("first_name")
-        .eq("id", otherId)
-        .single();
-
-      setOtherName(other?.first_name || "Match");
-      setAllowed(true);
-
-      const { data: msgs } = await supabase
-        .from("messages")
-        .select("id, sender_id, body, created_at")
-        .eq("match_id", matchId)
-        .order("created_at", { ascending: true });
-
-      setMessages((msgs as Msg[]) || []);
       setLoading(false);
     };
 
     if (matchId) init();
   }, [matchId, router]);
 
+  // Realtime message inserts
   useEffect(() => {
-    if (!allowed || !matchId) return;
+    if (!allowed || !matchId || !userId) return;
 
     const channel = supabase
-      .channel(`chat-${matchId}`)
+      .channel(`messages:${matchId}`)
       .on(
         "postgres_changes",
         {
@@ -107,41 +97,148 @@ export default function ChatPage() {
           filter: `match_id=eq.${matchId}`,
         },
         (payload) => {
-          const row = payload.new as Msg;
+          const row = normalizeMessage(payload.new);
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
-            return [...prev, row];
+            // Drop matching optimistic pending bubble from same sender/text
+            const withoutPending = prev.filter(
+              (m) =>
+                !(
+                  m.pending &&
+                  m.sender_id === row.sender_id &&
+                  m.body === row.body
+                )
+            );
+            return [...withoutPending, row];
           });
+
+          if (row.sender_id !== userId) {
+            markIncomingRead(matchId, userId);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        setConnected(status === "SUBSCRIBED");
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [allowed, matchId]);
+  }, [allowed, matchId, userId]);
+
+  // Typing channel
+  useEffect(() => {
+    if (!allowed || !matchId || !userId) return;
+
+    const channel = joinTypingChannel(matchId, userId, () => {
+      setOtherTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 1500);
+    });
+
+    typingChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      typingChannelRef.current = null;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [allowed, matchId, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, otherTyping]);
+
+  const onChangeText = (value: string) => {
+    setText(value);
+    if (!userId) return;
+
+    const now = Date.now();
+    if (now - lastTypingSentRef.current > 800) {
+      lastTypingSentRef.current = now;
+      broadcastTyping(typingChannelRef.current, userId);
+    }
+  };
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !text.trim() || !allowed) return;
+    if (!userId || !text.trim() || !allowed || sending) return;
 
-    const body = text.trim();
+    const messageText = text.trim();
     setText("");
+    setSending(true);
+    setErrorMsg("");
 
-    const { error } = await supabase.from("messages").insert({
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: tempId,
       match_id: matchId,
       sender_id: userId,
-      body,
-    });
+      body: messageText,
+      created_at: new Date().toISOString(),
+      pending: true,
+    };
 
-    if (error) {
-      setErrorMsg(error.message);
-      setText(body);
+    // Instant UI
+    setMessages((prev) => [...prev, optimistic]);
+
+    try {
+      const real = await sendMessage({
+        matchId,
+        senderId: userId,
+        text: messageText,
+      });
+
+      setMessages((prev) => {
+        const withoutTemp = prev.filter((m) => m.id !== tempId);
+        if (withoutTemp.some((m) => m.id === real.id)) return withoutTemp;
+        return [...withoutTemp, real];
+      });
+    } catch (err: any) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId ? { ...m, pending: false, failed: true } : m
+        )
+      );
+      setText(messageText);
+      setErrorMsg(err?.message || "Failed to send");
     }
+
+    setSending(false);
+  };
+
+  const retryFailed = async (msg: ChatMessage) => {
+    if (!userId || sending) return;
+    setSending(true);
+    setErrorMsg("");
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msg.id ? { ...m, pending: true, failed: false } : m
+      )
+    );
+
+    try {
+      const real = await sendMessage({
+        matchId,
+        senderId: userId,
+        text: msg.body,
+      });
+      setMessages((prev) => {
+        const withoutFailed = prev.filter((m) => m.id !== msg.id);
+        if (withoutFailed.some((m) => m.id === real.id)) return withoutFailed;
+        return [...withoutFailed, real];
+      });
+    } catch (err: any) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id ? { ...m, pending: false, failed: true } : m
+        )
+      );
+      setErrorMsg(err?.message || "Failed to send");
+    }
+
+    setSending(false);
   };
 
   if (loading) {
@@ -159,6 +256,7 @@ export default function ChatPage() {
           <button
             onClick={() => router.push("/matches")}
             className="flex items-center gap-2 text-slate-500 mb-6"
+            type="button"
           >
             <ArrowLeft className="w-4 h-4" />
             Matches
@@ -172,52 +270,102 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col pb-24">
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col">
       <div className="max-w-md mx-auto w-full flex flex-col min-h-screen">
         <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
-          <button onClick={() => router.push("/matches")}>
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
+          <button
+            onClick={() => router.push("/messages")}
+            className="text-slate-600"
+            type="button"
+          >
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="font-semibold">{otherName}</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-semibold truncate">{otherName}</h1>
+            <p className="text-[11px] text-slate-400">
+              {connected ? "Live" : "Connecting…"}
+              {otherTyping ? " · typing…" : ""}
+            </p>
+          </div>
         </div>
 
-        <div className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
+        {errorMsg && (
+          <div className="px-4 pt-3">
+            <p className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+              {errorMsg}
+            </p>
+          </div>
+        )}
+
+        <div className="flex-1 px-4 py-4 space-y-2 overflow-y-auto pb-32">
+          {messages.length === 0 && (
+            <p className="text-center text-sm text-slate-500 mt-8">
+              Say hello to {otherName}
+            </p>
+          )}
+
           {messages.map((m) => {
             const mine = m.sender_id === userId;
             return (
-              <div
-                key={m.id}
-                className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${
-                  mine
-                    ? "ml-auto bg-rose-500 text-white"
-                    : "mr-auto bg-white border border-slate-200 text-slate-800"
-                }`}
-              >
-                {m.body}
+              <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                <div
+                  className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
+                    mine
+                      ? "bg-rose-500 text-white"
+                      : "bg-white border border-slate-200 text-slate-800"
+                  } ${m.pending ? "opacity-70" : ""} ${
+                    m.failed ? "ring-2 ring-rose-300" : ""
+                  }`}
+                >
+                  {m.body}
+                </div>
+                {m.failed && (
+                  <button
+                    type="button"
+                    onClick={() => retryFailed(m)}
+                    className="text-[11px] text-rose-600 mt-1"
+                  >
+                    Failed · tap to retry
+                  </button>
+                )}
+                {m.pending && !m.failed && (
+                  <span className="text-[11px] text-slate-400 mt-1">Sending…</span>
+                )}
               </div>
             );
           })}
+
+          {otherTyping && (
+            <div className="mr-auto bg-white border border-slate-200 text-slate-500 text-xs px-3 py-2 rounded-2xl">
+              {otherName} is typing…
+            </div>
+          )}
           <div ref={bottomRef} />
         </div>
 
         <form
           onSubmit={send}
-          className="sticky bottom-16 max-w-md mx-auto w-full px-4 pb-3"
+          className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white"
         >
-          <div className="flex gap-2 bg-white border border-slate-200 rounded-2xl p-2">
+          <div className="max-w-md mx-auto w-full px-4 py-3 flex gap-2">
             <input
+              id="chat-message"
+              name="chat-message"
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => onChangeText(e.target.value)}
               placeholder="Message..."
-              className="flex-1 px-3 py-2 outline-none text-sm bg-transparent"
+              autoComplete="off"
+              className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-rose-400 text-sm"
             />
             <button
               type="submit"
-              className="bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold px-4 py-2 rounded-xl"
+              disabled={sending || !text.trim()}
+              className="bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-3 rounded-xl"
             >
               Send
             </button>
           </div>
+          <div className="h-14" />
         </form>
       </div>
     </div>

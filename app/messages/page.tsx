@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import EmptyState from "../components/EmptyState";
 import { MessageCircle } from "lucide-react";
 
 type Thread = {
@@ -16,11 +15,65 @@ type Thread = {
 
 export default function MessagesPage() {
   const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const loadThreads = async (uid: string) => {
+    const { data: matches, error } = await supabase
+      .from("matches")
+      .select("id, user1_id, user2_id, created_at")
+      .or(`user1_id.eq.${uid},user2_id.eq.${uid}`)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setErrorMsg(error.message);
+      return;
+    }
+
+    const seen = new Set<string>();
+    const result: Thread[] = [];
+
+    for (const m of matches || []) {
+      const otherId = m.user1_id === uid ? m.user2_id : m.user1_id;
+      if (seen.has(otherId)) continue;
+      seen.add(otherId);
+
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("first_name, photo_urls")
+        .eq("id", otherId)
+        .single();
+
+      const { data: msgs } = await supabase
+        .from("messages")
+        .select("body, content, created_at")
+        .eq("match_id", m.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      const last = msgs?.[0];
+      result.push({
+        matchId: m.id,
+        otherName: p?.first_name || "Match",
+        photo: p?.photo_urls?.[0] || null,
+        lastMessage: last?.body || last?.content || null,
+        lastAt: last?.created_at || m.created_at,
+      });
+    }
+
+    result.sort((a, b) => {
+      const ta = a.lastAt ? new Date(a.lastAt).getTime() : 0;
+      const tb = b.lastAt ? new Date(b.lastAt).getTime() : 0;
+      return tb - ta;
+    });
+
+    setThreads(result);
+  };
 
   useEffect(() => {
-    const load = async () => {
+    const init = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -28,56 +81,31 @@ export default function MessagesPage() {
         router.push("/auth");
         return;
       }
-
-      const { data: matches } = await supabase
-        .from("matches")
-        .select("id, user1_id, user2_id, created_at")
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-        .order("created_at", { ascending: false });
-
-      const seen = new Set<string>();
-      const result: Thread[] = [];
-
-      for (const m of matches || []) {
-        const otherId = m.user1_id === user.id ? m.user2_id : m.user1_id;
-        if (seen.has(otherId)) continue;
-        seen.add(otherId);
-
-        const { data: p } = await supabase
-          .from("profiles")
-          .select("first_name, photo_urls")
-          .eq("id", otherId)
-          .single();
-
-        let lastMessage: string | null = null;
-        let lastAt: string | null = null;
-
-        const { data: msgs } = await supabase
-          .from("messages")
-          .select("body, created_at")
-          .eq("match_id", m.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (msgs?.[0]) {
-          lastMessage = msgs[0].body;
-          lastAt = msgs[0].created_at;
-        }
-
-        result.push({
-          matchId: m.id,
-          otherName: p?.first_name || "Match",
-          photo: p?.photo_urls?.[0] || null,
-          lastMessage,
-          lastAt,
-        });
-      }
-
-      setThreads(result);
+      setUserId(user.id);
+      await loadThreads(user.id);
       setLoading(false);
     };
-    load();
+    init();
   }, [router]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`inbox:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => {
+          loadThreads(userId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   if (loading) {
     return (
@@ -92,13 +120,25 @@ export default function MessagesPage() {
       <div className="max-w-md mx-auto">
         <h1 className="text-2xl font-bold mb-6">Messages</h1>
 
+        {errorMsg && (
+          <p className="mb-4 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+            {errorMsg}
+          </p>
+        )}
+
         {threads.length === 0 ? (
-          <EmptyState
-            title="No conversations yet"
-            body="Match with someone first, then chat here."
-            actionLabel="View matches"
-            onAction={() => router.push("/matches")}
-          />
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center">
+            <p className="font-semibold">No conversations yet</p>
+            <p className="text-sm text-slate-500 mt-2">
+              Match with someone first, then chat here.
+            </p>
+            <button
+              onClick={() => router.push("/matches")}
+              className="mt-4 bg-rose-500 hover:bg-rose-600 text-white font-semibold px-5 py-2.5 rounded-xl text-sm"
+            >
+              View matches
+            </button>
+          </div>
         ) : (
           <div className="space-y-2">
             {threads.map((t) => (
