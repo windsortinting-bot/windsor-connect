@@ -8,27 +8,16 @@ import { ArrowLeft } from "lucide-react";
 
 const LINKS = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/overview", label: "Overview counts" },
-  { href: "/admin/health", label: "System health" },
-  { href: "/admin/checklist", label: "Soft-launch checklist" },
-  { href: "/admin/launch-notes", label: "Launch scratchpad" },
-  { href: "/admin/announcements", label: "Announcements" },
-  { href: "/admin/daily-prompts", label: "Daily prompts" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/support", label: "Support inbox" },
   { href: "/admin/feedback", label: "User feedback" },
   { href: "/admin/bugs", label: "Bug reports" },
-  { href: "/admin/press", label: "Press leads" },
-  { href: "/admin/faq", label: "FAQ admin" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/invites", label: "Invite codes" },
-  { href: "/admin/waitlist", label: "Waitlist" },
-  { href: "/admin/referrals", label: "Referrals" },
-  { href: "/admin/changelog", label: "Changelog" },
   { href: "/admin/flags", label: "Feature flags" },
-  { href: "/admin/events", label: "Events" },
-  { href: "/admin/notes", label: "Ops notes" },
-  { href: "/resources", label: "Resources hub" },
+  { href: "/admin/announcements", label: "Announcements" },
+  { href: "/admin/changelog", label: "Changelog" },
+  { href: "/admin/health", label: "System health" },
   { href: "/status", label: "Public status" },
 ];
 
@@ -79,6 +68,7 @@ export default function AdminLinksPage() {
         <button
           onClick={() => router.push("/admin")}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6"
+          type="button"
         >
           <ArrowLeft className="w-4 h-4" />
           Admin
@@ -95,6 +85,7 @@ export default function AdminLinksPage() {
               key={l.href}
               onClick={() => router.push(l.href)}
               className="w-full bg-white border border-slate-200 hover:bg-slate-50 rounded-xl py-3 text-sm text-left px-4"
+              type="button"
             >
               {l.label}
             </button>

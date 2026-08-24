@@ -4,13 +4,16 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { getUniqueMatchCount } from "../../lib/matching";
+import { countUnreadMessages } from "../../lib/unread";
 import { Heart, Home, MessageCircle, User, Sparkles } from "lucide-react";
+import UnreadBadge from "./UnreadBadge";
 
 export default function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
   const [matchCount, setMatchCount] = useState(0);
   const [likeCount, setLikeCount] = useState(0);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -19,8 +22,12 @@ export default function BottomNav() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const count = await getUniqueMatchCount(user.id);
-      setMatchCount(count);
+      const [matches, unreadCount] = await Promise.all([
+        getUniqueMatchCount(user.id),
+        countUnreadMessages(user.id),
+      ]);
+      setMatchCount(matches);
+      setUnread(unreadCount);
 
       const { data: mySwipes } = await supabase
         .from("swipes")
@@ -51,7 +58,7 @@ export default function BottomNav() {
     { href: "/swipe", label: "Swipe", icon: Home },
     { href: "/likes", label: "Likes", icon: Sparkles, badge: likeCount },
     { href: "/matches", label: "Matches", icon: Heart, badge: matchCount },
-    { href: "/messages", label: "Chat", icon: MessageCircle },
+    { href: "/messages", label: "Chat", icon: MessageCircle, badge: unread },
     { href: "/profile", label: "Profile", icon: User },
   ];
 
@@ -68,14 +75,13 @@ export default function BottomNav() {
               className={`relative flex flex-col items-center gap-0.5 px-2 py-1 text-[11px] ${
                 active ? "text-rose-600" : "text-slate-500"
               }`}
+              type="button"
             >
-              <Icon className={`w-5 h-5 ${active ? "fill-rose-500/20" : ""}`} />
+              <span className="relative">
+                <Icon className="w-5 h-5" />
+                <UnreadBadge count={item.badge || 0} />
+              </span>
               {item.label}
-              {!!item.badge && item.badge > 0 && (
-                <span className="absolute -top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center">
-                  {item.badge > 9 ? "9+" : item.badge}
-                </span>
-              )}
             </button>
           );
         })}

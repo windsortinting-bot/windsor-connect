@@ -4,6 +4,6 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     service: "windsor-connect",
-    time: new Date().toISOString(),
+    ts: new Date().toISOString(),
   });
 }

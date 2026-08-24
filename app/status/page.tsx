@@ -6,62 +6,55 @@ import { ArrowLeft } from "lucide-react";
 
 export default function StatusPage() {
   const router = useRouter();
-  const [health, setHealth] = useState<string>("Checking...");
-  const [stats, setStats] = useState<{
-    onboarded_profiles?: number;
-    matches?: number;
-  } | null>(null);
+  const [apiOk, setApiOk] = useState<boolean | null>(null);
+  const [ts, setTs] = useState("");
 
   useEffect(() => {
-    const load = async () => {
+    const check = async () => {
       try {
-        const h = await fetch("/api/health").then((r) => r.json());
-        setHealth(h?.ok ? "All systems operational" : "Degraded");
+        const res = await fetch("/api/health");
+        const json = await res.json();
+        setApiOk(!!json?.ok);
+        setTs(json?.ts || "");
       } catch {
-        setHealth("Unavailable");
-      }
-
-      try {
-        const s = await fetch("/api/stats/public").then((r) => r.json());
-        if (s?.ok) setStats(s);
-      } catch {
-        // ignore
+        setApiOk(false);
       }
     };
-    load();
+    check();
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
+    <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6"
+          type="button"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
 
-        <h1 className="text-3xl font-bold mb-2">Status</h1>
-        <p className="text-slate-500 text-sm mb-8">Windsor Connect service status</p>
+        <h1 className="text-3xl font-bold mb-2">Service status</h1>
+        <p className="text-slate-500 text-sm mb-8">Windsor Connect health</p>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-4">
-          <p className="text-sm text-slate-400">API</p>
-          <p className="text-lg font-semibold text-white mt-1">{health}</p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-4">
+          <p className="text-sm">
+            API:{" "}
+            <span
+              className={
+                apiOk === null
+                  ? "text-slate-500"
+                  : apiOk
+                  ? "text-emerald-600 font-semibold"
+                  : "text-rose-600 font-semibold"
+              }
+            >
+              {apiOk === null ? "Checking..." : apiOk ? "OK" : "Down"}
+            </span>
+          </p>
+          {ts && <p className="text-xs text-slate-400 mt-2">{ts}</p>}
         </div>
-
-        {stats && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <p className="text-2xl font-bold">{stats.onboarded_profiles}</p>
-              <p className="text-xs text-slate-500 mt-1">Onboarded profiles</p>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <p className="text-2xl font-bold">{stats.matches}</p>
-              <p className="text-xs text-slate-500 mt-1">Matches created</p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
