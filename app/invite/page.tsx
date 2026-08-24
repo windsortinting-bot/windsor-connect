@@ -1,110 +1,110 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { ArrowLeft, Copy, Share2, Check } from "lucide-react";
+import { ArrowLeft, Copy, Check } from "lucide-react";
 
 export default function InvitePage() {
   const router = useRouter();
-  const [copied, setCopied] = useState(false);
-  const [status, setStatus] = useState("");
+  const [codes, setCodes] = useState<{ code: string; uses: number; max_uses: number }[]>([]);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const shareUrl =
-    typeof window !== "undefined" ? window.location.origin : "https://windsor-connect.vercel.app";
+  useEffect(() => {
+    const load = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/auth");
+        return;
+      }
 
-  const shareText = `Join me on Windsor Connect — local dating for Windsor, ON (519). ${shareUrl}`;
+      const { data } = await supabase
+        .from("invite_codes")
+        .select("code, uses, max_uses")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(5);
 
-  const logClick = async () => {
+      setCodes((data as any) || []);
+      setLoading(false);
+    };
+    load();
+  }, [router]);
+
+  const copy = async (code: string) => {
     try {
-      await supabase.from("invite_clicks").insert({ source: "share" });
+      await navigator.clipboard.writeText(code);
+      setCopied(code);
+      setTimeout(() => setCopied(null), 1500);
     } catch {
       // ignore
     }
   };
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareText);
-      setCopied(true);
-      setStatus("Link copied");
-      await logClick();
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setStatus("Could not copy — select and copy manually");
-    }
-  };
-
-  const handleShare = async () => {
-    await logClick();
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Windsor Connect",
-          text: "Local dating for Windsor, ON",
-          url: shareUrl,
-        });
-        setStatus("Shared");
-      } catch {
-        // user cancelled
-      }
-    } else {
-      await handleCopy();
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
+        Loading invites...
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
+    <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
-          onClick={() => router.back()}
-          className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
+          onClick={() => router.push("/profile")}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6"
+          type="button"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          Profile
         </button>
 
         <h1 className="text-3xl font-bold mb-2">Invite friends</h1>
         <p className="text-slate-500 text-sm mb-8">
-          Windsor works best when more locals join. Share the app.
+          Soft-launch codes for Windsor testers
         </p>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
-          <p className="text-sm text-slate-400 mb-2">Your invite link</p>
-          <p className="text-white text-sm break-all bg-slate-800 rounded-xl px-3 py-3">
-            {shareUrl}
-          </p>
-        </div>
 
         <div className="space-y-3">
-          <button
-            onClick={handleShare}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold py-3 rounded-xl"
-          >
-            <Share2 className="w-5 h-5" />
-            Share
-          </button>
-          <button
-            onClick={handleCopy}
-            className="w-full flex items-center justify-center gap-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-white py-3 rounded-xl"
-          >
-            {copied ? (
-              <Check className="w-5 h-5 text-emerald-400" />
-            ) : (
-              <Copy className="w-5 h-5" />
-            )}
-            {copied ? "Copied" : "Copy message"}
-          </button>
+          {codes.map((c) => (
+            <div
+              key={c.code}
+              className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between"
+            >
+              <div>
+                <p className="font-mono font-semibold tracking-wide">{c.code}</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {c.uses}/{c.max_uses} uses
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => copy(c.code)}
+                className="flex items-center gap-1 text-sm text-rose-600"
+              >
+                {copied === c.code ? (
+                  <>
+                    <Check className="w-4 h-4" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" /> Copy
+                  </>
+                )}
+              </button>
+            </div>
+          ))}
         </div>
 
-        {status && (
-          <p className="text-center text-sm text-emerald-400 mt-4">{status}</p>
+        {codes.length === 0 && (
+          <p className="text-sm text-slate-500 bg-white border border-slate-200 rounded-2xl p-4">
+            No active invite codes yet.
+          </p>
         )}
-
-        <p className="text-xs text-slate-600 text-center mt-8">
-          Tip: share in local Facebook groups, Discord, or with friends who
-          actually live in the 519.
-        </p>
       </div>
     </div>
   );

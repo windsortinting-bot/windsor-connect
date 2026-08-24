@@ -10,9 +10,11 @@ const LINKS = [
   { href: "/settings/notifications", label: "Notifications" },
   { href: "/filters", label: "Discovery filters" },
   { href: "/blocked", label: "Blocked users" },
-  { href: "/security", label: "Security" },
-  { href: "/quiet-hours", label: "Quiet hours" },
   { href: "/pause", label: "Pause profile" },
+  { href: "/invite", label: "Invite codes" },
+  { href: "/support", label: "Support" },
+  { href: "/safety", label: "Safety tips" },
+  { href: "/profile-score", label: "Profile strength" },
   { href: "/settings/export", label: "Export my data" },
   { href: "/delete-account", label: "Delete account" },
 ];

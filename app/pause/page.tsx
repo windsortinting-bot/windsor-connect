@@ -3,16 +3,16 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-import { trackEvent } from "../../lib/analytics";
+import { setPaused } from "../../lib/profileActions";
 import { ArrowLeft } from "lucide-react";
 
 export default function PausePage() {
   const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [paused, setIsPaused] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [paused, setPaused] = useState(false);
-  const [reason, setReason] = useState("");
-  const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -23,50 +23,32 @@ export default function PausePage() {
         router.push("/auth");
         return;
       }
+      setUserId(user.id);
 
       const { data } = await supabase
         .from("profiles")
-        .select("is_paused, pause_reason")
+        .select("is_paused")
         .eq("id", user.id)
         .single();
 
-      setPaused(!!data?.is_paused);
-      setReason(data?.pause_reason || "");
+      setIsPaused(!!data?.is_paused);
       setLoading(false);
     };
     load();
   }, [router]);
 
   const toggle = async () => {
+    if (!userId || saving) return;
     setSaving(true);
     setMessage("");
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      router.push("/auth");
-      return;
+    try {
+      const next = !paused;
+      await setPaused(userId, next);
+      setIsPaused(next);
+      setMessage(next ? "Profile paused. You will not appear in discovery." : "Profile is active again.");
+    } catch (err: any) {
+      setMessage(err?.message || "Could not update pause status");
     }
-
-    const next = !paused;
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        is_paused: next,
-        pause_reason: next ? reason.trim() || null : null,
-      })
-      .eq("id", user.id);
-
-    if (error) {
-      setMessage(error.message);
-      setSaving(false);
-      return;
-    }
-
-    await trackEvent(next ? "profile_paused" : "profile_unpaused");
-    setPaused(next);
-    setMessage(next ? "Profile paused" : "Profile is active again");
     setSaving(false);
   };
 
@@ -84,6 +66,7 @@ export default function PausePage() {
         <button
           onClick={() => router.push("/settings")}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6"
+          type="button"
         >
           <ArrowLeft className="w-4 h-4" />
           Settings
@@ -91,49 +74,32 @@ export default function PausePage() {
 
         <h1 className="text-3xl font-bold mb-2">Pause profile</h1>
         <p className="text-slate-500 text-sm mb-8">
-          Hide yourself from discovery without deleting your account
+          Hide yourself from swipe without deleting your account
         </p>
 
-        {message && (
-          <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-            {message}
-          </p>
-        )}
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
-          <p className="text-sm text-slate-700">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 mb-6">
+          <p className="text-sm">
             Status:{" "}
-            <span className="font-semibold">
+            <span className={paused ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
               {paused ? "Paused" : "Active"}
             </span>
           </p>
         </div>
 
-        {!paused && (
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={3}
-            placeholder="Optional reason (only you see this)"
-            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-rose-400 mb-4"
-          />
-        )}
-
         <button
           onClick={toggle}
           disabled={saving}
-          className={`w-full font-semibold py-3 rounded-xl disabled:opacity-60 ${
-            paused
-              ? "bg-emerald-500 hover:bg-emerald-600 text-white"
-              : "bg-amber-500 hover:bg-amber-600 text-white"
-          }`}
+          className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-60 text-white font-semibold py-3 rounded-xl"
+          type="button"
         >
-          {saving
-            ? "Saving..."
-            : paused
-            ? "Unpause profile"
-            : "Pause profile"}
+          {saving ? "Saving..." : paused ? "Unpause profile" : "Pause profile"}
         </button>
+
+        {message && (
+          <p className="mt-4 text-sm text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-3">
+            {message}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -3,20 +3,27 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { saveFilters } from "../../lib/profileActions";
 import { ArrowLeft } from "lucide-react";
 
-const LOOKING_FOR = [
-  { value: "men", label: "Men" },
-  { value: "women", label: "Women" },
-  { value: "everyone", label: "Everyone" },
+const LOOKING = ["Men", "Women", "Everyone"];
+const NEIGHBORHOODS = [
+  "Walkerville",
+  "Downtown",
+  "Ford City",
+  "Riverside",
+  "South Windsor",
+  "University of Windsor",
 ];
 
 export default function FiltersPage() {
   const router = useRouter();
-  const [lookingFor, setLookingFor] = useState("everyone");
-  const [message, setMessage] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [lookingFor, setLookingFor] = useState("Everyone");
+  const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -27,40 +34,44 @@ export default function FiltersPage() {
         router.push("/auth");
         return;
       }
+      setUserId(user.id);
 
       const { data } = await supabase
         .from("profiles")
-        .select("looking_for")
+        .select("looking_for, preferred_neighborhoods")
         .eq("id", user.id)
         .single();
 
-      setLookingFor(data?.looking_for || "everyone");
+      if (data?.looking_for) setLookingFor(data.looking_for);
+      if (Array.isArray(data?.preferred_neighborhoods)) {
+        setSelected(data.preferred_neighborhoods);
+      }
       setLoading(false);
     };
     load();
   }, [router]);
 
+  const toggleN = (n: string) => {
+    setSelected((prev) =>
+      prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]
+    );
+  };
+
   const save = async () => {
+    if (!userId) return;
     setSaving(true);
     setMessage("");
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({ looking_for: lookingFor })
-      .eq("id", user.id);
-
-    setSaving(false);
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      await saveFilters({
+        userId,
+        lookingFor,
+        preferredNeighborhoods: selected,
+      });
+      setMessage("Filters saved.");
+    } catch (err: any) {
+      setMessage(err?.message || "Could not save filters");
     }
-
-    setMessage("Filters saved. Swipe stack will update.");
+    setSaving(false);
   };
 
   if (loading) {
@@ -72,33 +83,52 @@ export default function FiltersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-6 pb-28">
+    <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/settings")}
           className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-6"
+          type="button"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          Settings
         </button>
 
-        <h1 className="text-2xl font-bold mb-2">Discovery filters</h1>
-        <p className="text-sm text-slate-500 mb-8">
-          Who you want to see in Discover
-        </p>
+        <h1 className="text-3xl font-bold mb-2">Discovery filters</h1>
+        <p className="text-slate-500 text-sm mb-8">Who you want to see</p>
 
+        <p className="text-sm font-medium mb-2">Looking for</p>
         <div className="space-y-2 mb-6">
-          {LOOKING_FOR.map((o) => (
+          {LOOKING.map((opt) => (
             <button
-              key={o.value}
-              onClick={() => setLookingFor(o.value)}
+              key={opt}
+              type="button"
+              onClick={() => setLookingFor(opt)}
               className={`w-full text-left px-4 py-3 rounded-xl border text-sm ${
-                lookingFor === o.value
+                lookingFor === opt
                   ? "border-rose-400 bg-rose-50 text-rose-700"
                   : "border-slate-200 bg-white"
               }`}
             >
-              {o.label}
+              {opt}
+            </button>
+          ))}
+        </div>
+
+        <p className="text-sm font-medium mb-2">Preferred neighborhoods</p>
+        <div className="space-y-2 mb-6">
+          {NEIGHBORHOODS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => toggleN(n)}
+              className={`w-full text-left px-4 py-3 rounded-xl border text-sm ${
+                selected.includes(n)
+                  ? "border-rose-400 bg-rose-50 text-rose-700"
+                  : "border-slate-200 bg-white"
+              }`}
+            >
+              {n}
             </button>
           ))}
         </div>
@@ -107,22 +137,16 @@ export default function FiltersPage() {
           onClick={save}
           disabled={saving}
           className="w-full bg-rose-500 hover:bg-rose-600 disabled:opacity-60 text-white font-semibold py-3 rounded-xl"
+          type="button"
         >
           {saving ? "Saving..." : "Save filters"}
         </button>
 
         {message && (
-          <p className="mt-4 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+          <p className="mt-4 text-sm text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-3">
             {message}
           </p>
         )}
-
-        <button
-          onClick={() => router.push("/swipe")}
-          className="mt-3 w-full border border-slate-200 bg-white rounded-xl py-3 text-sm"
-        >
-          Back to Discover
-        </button>
       </div>
     </div>
   );
