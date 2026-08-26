@@ -1,46 +1,34 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import { ArrowLeft, Plus, Ban, Check } from "lucide-react";
+import { requireAdmin } from "../../../lib/adminUsers";
+import { ArrowLeft } from "lucide-react";
 
-interface InviteCode {
+type Code = {
   id: string;
   code: string;
-  max_uses: number;
-  used_count: number;
-  is_active: boolean;
-  created_at: string;
-}
+  max_uses: number | null;
+  uses: number | null;
+  is_active: boolean | null;
+  note: string | null;
+};
 
 export default function AdminInvitesPage() {
   const router = useRouter();
+  const [rows, setRows] = useState<Code[]>([]);
+  const [code, setCode] = useState("");
+  const [maxUses, setMaxUses] = useState("25");
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
-  const [codes, setCodes] = useState<InviteCode[]>([]);
-  const [newCode, setNewCode] = useState("");
-  const [maxUses, setMaxUses] = useState(50);
   const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
 
   const load = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.push("/auth");
-      return;
-    }
-
-    const { data: me } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    if (!me?.is_admin) {
+    try {
+      await requireAdmin();
+    } catch {
       setDenied(true);
       setLoading(false);
       return;
@@ -48,165 +36,123 @@ export default function AdminInvitesPage() {
 
     const { data, error } = await supabase
       .from("invite_codes")
-      .select("*")
+      .select("id, code, max_uses, uses, is_active, note")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setCodes(data || []);
-    }
+    if (error) setMessage(error.message);
+    else setRows((data as Code[]) || []);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
-  }, [router]);
+  }, []);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = newCode.trim().toUpperCase();
-    if (!code) return;
-
-    setSaving(true);
-    setMessage("");
-
+  const create = async () => {
+    if (!code.trim()) return;
     const { error } = await supabase.from("invite_codes").insert({
-      code,
-      max_uses: maxUses,
-      used_count: 0,
+      code: code.trim().toUpperCase(),
+      max_uses: Number(maxUses) || 25,
+      uses: 0,
       is_active: true,
+      note: note.trim() || null,
     });
-
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setNewCode("");
-      setMaxUses(50);
-      setMessage("Code created");
-      await load();
-    }
-    setSaving(false);
-  };
-
-  const toggleActive = async (row: InviteCode) => {
-    const { error } = await supabase
-      .from("invite_codes")
-      .update({ is_active: !row.is_active })
-      .eq("id", row.id);
-
     if (error) {
       setMessage(error.message);
       return;
     }
-    setCodes((prev) =>
-      prev.map((c) =>
-        c.id === row.id ? { ...c, is_active: !c.is_active } : c
-      )
-    );
+    setCode("");
+    setNote("");
+    await load();
+  };
+
+  const toggle = async (id: string, isActive: boolean) => {
+    const { error } = await supabase
+      .from("invite_codes")
+      .update({ is_active: !isActive })
+      .eq("id", id);
+    if (error) setMessage(error.message);
+    else await load();
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        Loading...
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
+        Loading invites...
       </div>
     );
   }
 
   if (denied) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4">
-        <p>Admin access required.</p>
-        <button
-          onClick={() => router.push("/profile")}
-          className="mt-4 bg-slate-800 px-6 py-3 rounded-xl text-sm"
-        >
-          Back
-        </button>
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
+        Admin access required.
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
+    <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
-          onClick={() => router.push("/admin")}
-          className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
+          onClick={() => router.push("/admin/links")}
+          className="flex items-center gap-2 text-slate-500 mb-6"
+          type="button"
         >
           <ArrowLeft className="w-4 h-4" />
-          Admin
+          Admin menu
         </button>
 
-        <h1 className="text-3xl font-bold mb-2">Invite codes</h1>
-        <p className="text-slate-500 text-sm mb-6">
-          Soft-launch access control
-        </p>
+        <h1 className="text-3xl font-bold mb-6">Invite codes</h1>
 
         {message && (
-          <p className="mb-4 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+          <p className="mb-4 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
             {message}
           </p>
         )}
 
-        <form
-          onSubmit={handleCreate}
-          className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-6 space-y-3"
-        >
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-6 space-y-3">
           <input
-            value={newCode}
-            onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-            placeholder="NEW CODE"
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 tracking-wider outline-none focus:border-rose-500"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="NEWCODE"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 uppercase"
           />
           <input
-            type="number"
-            min={1}
             value={maxUses}
-            onChange={(e) => setMaxUses(Number(e.target.value))}
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
+            onChange={(e) => setMaxUses(e.target.value)}
+            placeholder="Max uses"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3"
+          />
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Note"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3"
           />
           <button
-            type="submit"
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-60 text-white font-semibold py-3 rounded-xl"
+            type="button"
+            onClick={create}
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-xl"
           >
-            <Plus className="w-4 h-4" />
             Create code
           </button>
-        </form>
+        </div>
 
         <div className="space-y-3">
-          {codes.map((c) => (
-            <div
-              key={c.id}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-3"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-mono font-semibold text-white">{c.code}</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {c.used_count}/{c.max_uses} used ·{" "}
-                  {c.is_active ? "active" : "disabled"}
-                </p>
-              </div>
+          {rows.map((r) => (
+            <div key={r.id} className="bg-white border border-slate-200 rounded-2xl p-4">
+              <p className="font-mono font-semibold">{r.code}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {r.uses || 0}/{r.max_uses || 0} uses · {r.is_active ? "Active" : "Off"}
+              </p>
+              {r.note && <p className="text-sm text-slate-600 mt-2">{r.note}</p>}
               <button
-                onClick={() => toggleActive(c)}
-                className={`px-3 py-2 rounded-xl text-sm border ${
-                  c.is_active
-                    ? "border-rose-500/40 text-rose-400"
-                    : "border-emerald-500/40 text-emerald-400"
-                }`}
+                type="button"
+                onClick={() => toggle(r.id, !!r.is_active)}
+                className="mt-3 text-xs border border-slate-200 rounded-lg px-3 py-1.5"
               >
-                {c.is_active ? (
-                  <span className="flex items-center gap-1">
-                    <Ban className="w-3.5 h-3.5" /> Disable
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> Enable
-                  </span>
-                )}
+                {r.is_active ? "Disable" : "Enable"}
               </button>
             </div>
           ))}

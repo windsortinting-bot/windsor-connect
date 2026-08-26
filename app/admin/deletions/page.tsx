@@ -3,19 +3,17 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import { requireAdmin, setBanned } from "../../../lib/adminUsers";
+import { requireAdmin } from "../../../lib/adminUsers";
+import { timeAgo } from "../../../lib/format";
 import { ArrowLeft } from "lucide-react";
 
 type Row = {
   id: string;
   first_name: string | null;
-  is_paused: boolean | null;
-  is_banned: boolean | null;
-  is_onboarded: boolean | null;
   delete_requested_at: string | null;
 };
 
-export default function AdminUsersPage() {
+export default function AdminDeletionsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,9 +31,9 @@ export default function AdminUsersPage() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, first_name, is_paused, is_banned, is_onboarded, delete_requested_at")
-      .order("first_name", { ascending: true })
-      .limit(200);
+      .select("id, first_name, delete_requested_at")
+      .not("delete_requested_at", "is", null)
+      .order("delete_requested_at", { ascending: false });
 
     if (error) setMessage(error.message);
     else setRows((data as Row[]) || []);
@@ -46,19 +44,19 @@ export default function AdminUsersPage() {
     load();
   }, []);
 
-  const ban = async (id: string, banned: boolean) => {
-    try {
-      await setBanned(id, banned, banned ? "Admin ban" : undefined);
-      await load();
-    } catch (err: any) {
-      setMessage(err?.message || "Update failed");
-    }
+  const pauseNow = async (id: string) => {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_paused: true, paused_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) setMessage(error.message);
+    else setMessage("Profile paused while deletion is processed.");
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
-        Loading users...
+        Loading deletion requests...
       </div>
     );
   }
@@ -83,11 +81,11 @@ export default function AdminUsersPage() {
           Admin menu
         </button>
 
-        <h1 className="text-3xl font-bold mb-2">Users</h1>
-        <p className="text-slate-500 text-sm mb-6">{rows.length} profiles</p>
+        <h1 className="text-3xl font-bold mb-2">Deletion queue</h1>
+        <p className="text-slate-500 text-sm mb-6">{rows.length} requests</p>
 
         {message && (
-          <p className="mb-4 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+          <p className="mb-4 text-sm text-slate-700 bg-white border border-slate-200 rounded-xl px-4 py-3">
             {message}
           </p>
         )}
@@ -96,32 +94,17 @@ export default function AdminUsersPage() {
           {rows.map((r) => (
             <div key={r.id} className="bg-white border border-slate-200 rounded-2xl p-4">
               <p className="font-semibold">{r.first_name || "Unnamed"}</p>
-              <p className="text-xs text-slate-500 mt-1 break-all">{r.id}</p>
               <p className="text-xs text-slate-500 mt-1">
-                {r.is_onboarded ? "Onboarded" : "Incomplete"}
-                {r.is_paused ? " · Paused" : ""}
-                {r.is_banned ? " · Banned" : ""}
-                {r.delete_requested_at ? " · Delete requested" : ""}
+                Requested {r.delete_requested_at ? timeAgo(r.delete_requested_at) : "unknown"}
               </p>
-              <div className="flex gap-2 mt-3">
-                {!r.is_banned ? (
-                  <button
-                    type="button"
-                    onClick={() => ban(r.id, true)}
-                    className="text-xs border border-rose-200 text-rose-700 rounded-lg px-3 py-1.5"
-                  >
-                    Ban
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => ban(r.id, false)}
-                    className="text-xs border border-emerald-200 text-emerald-700 rounded-lg px-3 py-1.5"
-                  >
-                    Unban
-                  </button>
-                )}
-              </div>
+              <p className="text-[11px] text-slate-400 mt-1 break-all">{r.id}</p>
+              <button
+                type="button"
+                onClick={() => pauseNow(r.id)}
+                className="mt-3 text-xs border border-slate-200 rounded-lg px-3 py-1.5"
+              >
+                Confirm paused
+              </button>
             </div>
           ))}
         </div>
