@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import BottomNav from "./components/BottomNav";
+import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: "Windsor Connect",
@@ -15,8 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-slate-100 text-slate-900 antialiased">
-        {children}
-        <BottomNav />
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
