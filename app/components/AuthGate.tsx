@@ -29,8 +29,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const gated = [ROUTES.swipe, ROUTES.likes, ROUTES.matches, ROUTES.messages];
-        if (gated.includes(pathname as any)) {
+        const gated = ["/swipe", "/likes", "/matches", "/messages"];
+        if (gated.includes(pathname)) {
           if (!account.isOnboarded) {
             router.replace(ROUTES.notReady);
             return;

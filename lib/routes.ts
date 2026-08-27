@@ -1,0 +1,33 @@
+export const ROUTES = {
+  home: "/",
+  auth: "/auth",
+  welcome: "/welcome",
+  onboarding: "/onboarding",
+  profile: "/profile",
+  swipe: "/swipe",
+  likes: "/likes",
+  matches: "/matches",
+  messages: "/messages",
+  settings: "/settings",
+  resources: "/resources",
+  support: "/support",
+  safety: "/safety",
+  banned: "/banned",
+  paused: "/paused-notice",
+  notReady: "/not-ready",
+  offline: "/offline",
+} as const;
+
+export const PUBLIC_PATHS = new Set([
+  "/",
+  "/auth",
+  "/welcome",
+  "/about",
+  "/terms",
+  "/privacy",
+  "/guidelines",
+  "/age-gate",
+  "/legal",
+  "/status",
+  "/offline",
+]);
