@@ -6,12 +6,10 @@ export default function AppShell({
   title,
   onBack,
   children,
-  footer,
 }: {
   title?: string;
   onBack?: () => void;
   children: React.ReactNode;
-  footer?: React.ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
@@ -31,7 +29,6 @@ export default function AppShell({
           </div>
         )}
         {children}
-        {footer}
       </div>
     </div>
   );

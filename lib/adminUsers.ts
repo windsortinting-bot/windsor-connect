@@ -1,6 +1,6 @@
 import { supabase } from "./supabaseClient";
 
-export async function requireAdmin(): Promise<string> {
+export async function requireAdmin() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -10,22 +10,8 @@ export async function requireAdmin(): Promise<string> {
     .from("profiles")
     .select("is_admin")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (!data?.is_admin) throw new Error("Admin access required");
-  return user.id;
-}
-
-export async function setBanned(userId: string, banned: boolean, reason?: string) {
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      is_banned: banned,
-      banned_at: banned ? new Date().toISOString() : null,
-      ban_reason: banned ? reason || "Banned by admin" : null,
-      is_paused: banned ? true : undefined,
-    })
-    .eq("id", userId);
-
-  if (error) throw error;
+  if (!data?.is_admin) throw new Error("Admin only");
+  return user;
 }
