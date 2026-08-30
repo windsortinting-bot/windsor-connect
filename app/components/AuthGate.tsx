@@ -13,41 +13,50 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const run = async () => {
-      const account = await getAccountState();
       const isPublic = PUBLIC_PATHS.has(pathname);
 
-      if (!account && !isPublic) {
-        router.replace(ROUTES.auth);
-        return;
-      }
+      try {
+        const account = await getAccountState();
 
-      if (account) {
-        pingActive(account.userId);
-
-        if (account.isBanned && pathname !== ROUTES.banned) {
-          router.replace(ROUTES.banned);
+        if (!account && !isPublic) {
+          router.replace(ROUTES.auth);
           return;
         }
 
-        const gated = ["/swipe", "/likes", "/matches", "/messages"];
-        if (gated.includes(pathname)) {
-          if (!account.isOnboarded) {
-            router.replace(ROUTES.notReady);
+        if (account) {
+          pingActive(account.userId);
+
+          if (account.isBanned && pathname !== ROUTES.banned) {
+            router.replace(ROUTES.banned);
             return;
           }
-          if (account.isPaused && pathname === ROUTES.swipe) {
-            router.replace(ROUTES.paused);
+
+          const gated = ["/swipe", "/likes", "/matches", "/messages"];
+          if (gated.includes(pathname)) {
+            if (!account.isOnboarded) {
+              router.replace(ROUTES.notReady);
+              return;
+            }
+            if (account.isPaused && pathname === ROUTES.swipe) {
+              router.replace(ROUTES.paused);
+              return;
+            }
+          }
+
+          if (pathname === ROUTES.auth) {
+            router.replace(nextRouteForAccount(account));
             return;
           }
         }
-      }
 
-      if (pathname === ROUTES.auth && account) {
-        router.replace(nextRouteForAccount(account));
-        return;
+        setReady(true);
+      } catch {
+        if (isPublic) {
+          setReady(true);
+          return;
+        }
+        router.replace(ROUTES.auth);
       }
-
-      setReady(true);
     };
 
     run();

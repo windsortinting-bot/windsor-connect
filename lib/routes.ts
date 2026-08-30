@@ -16,11 +16,13 @@ export const ROUTES = {
   paused: "/paused-notice",
   notReady: "/not-ready",
   offline: "/offline",
+  logout: "/logout",
 } as const;
 
 export const PUBLIC_PATHS = new Set([
   "/",
   "/auth",
+  "/logout",
   "/welcome",
   "/about",
   "/terms",
