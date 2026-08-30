@@ -84,6 +84,13 @@ export default function AfterMatchPage() {
         </button>
         <button
           type="button"
+          onClick={() => router.push("/plan-text")}
+          className="w-full bg-white border border-slate-200 py-3 rounded-xl"
+        >
+          Copy a plan
+        </button>
+        <button
+          type="button"
           onClick={() => router.push("/safety-checkin")}
           className="w-full bg-white border border-slate-200 py-3 rounded-xl"
         >

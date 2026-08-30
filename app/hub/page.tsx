@@ -2,17 +2,34 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { ADMIN_TOOLBOX, USER_TOOLBOX } from "../../lib/routeIndex";
 import AppShell from "../components/AppShell";
+
+const MAIN = [
+  { href: "/today", label: "Today" },
+  { href: "/next-best", label: "Next best step" },
+  { href: "/swipe", label: "Swipe" },
+  { href: "/matches", label: "Matches" },
+  { href: "/messages", label: "Messages" },
+  { href: "/after-match", label: "After a match" },
+];
+
+const PREP = [
+  { href: "/self-preview", label: "How you look" },
+  { href: "/gaps", label: "Profile gaps" },
+  { href: "/openers", label: "Openers" },
+  { href: "/plan-text", label: "Plan text" },
+  { href: "/first-date", label: "First date kit" },
+  { href: "/safety-checkin", label: "Safety check-in" },
+];
 
 export default function HubPage() {
   const router = useRouter();
 
   return (
-    <AppShell title="Hub" onBack={() => router.push("/more")}>
-      <h2 className="font-semibold mb-2">Use today</h2>
+    <AppShell title="Hub" onBack={() => router.push("/launch-home")}>
+      <h2 className="font-semibold mb-2">Use now</h2>
       <div className="space-y-2 mb-6">
-        {USER_TOOLBOX.map((item) => (
+        {MAIN.map((item) => (
           <button
             key={item.href}
             type="button"
@@ -23,9 +40,9 @@ export default function HubPage() {
           </button>
         ))}
       </div>
-      <h2 className="font-semibold mb-2">Admin</h2>
+      <h2 className="font-semibold mb-2">Get ready</h2>
       <div className="space-y-2">
-        {ADMIN_TOOLBOX.map((item) => (
+        {PREP.map((item) => (
           <button
             key={item.href}
             type="button"

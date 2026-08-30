@@ -16,19 +16,15 @@ export default function AdminHealthPage() {
     const run = async () => {
       try {
         await requireAdmin();
-        const [profiles, matches, messages, reports, tickets] = await Promise.all([
+        const [profiles, matches, messages] = await Promise.all([
           supabase.from("profiles").select("*", { count: "exact", head: true }),
           supabase.from("matches").select("*", { count: "exact", head: true }),
           supabase.from("messages").select("*", { count: "exact", head: true }),
-          supabase.from("reports").select("*", { count: "exact", head: true }),
-          supabase.from("support_tickets").select("*", { count: "exact", head: true }),
         ]);
         setRows([
           { label: "Profiles", value: profiles.count || 0 },
           { label: "Matches", value: matches.count || 0 },
           { label: "Messages", value: messages.count || 0 },
-          { label: "Reports", value: reports.count || 0 },
-          { label: "Support tickets", value: tickets.count || 0 },
         ]);
       } catch {
         setDenied(true);

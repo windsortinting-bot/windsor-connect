@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "../../lib/useAccount";
 import { loadTodayPin, saveTodayPin } from "../../lib/todayPin";
-import { trackEvent } from "../../lib/events";
+import { getNextAction, type NextAction } from "../../lib/nextAction";
 import AppShell from "../components/AppShell";
 
 const CHOICES = [
@@ -19,6 +19,7 @@ export default function TodayPage() {
   const router = useRouter();
   const { account, loading } = useAccount();
   const [focus, setFocus] = useState(CHOICES[0]);
+  const [suggested, setSuggested] = useState<NextAction | null>(null);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export default function TodayPage() {
         return;
       }
       setFocus(await loadTodayPin(account.userId));
-      await trackEvent("today_opened");
+      setSuggested(await getNextAction(account.userId));
     };
     run();
   }, [account, loading, router]);
@@ -41,10 +42,23 @@ export default function TodayPage() {
   };
 
   return (
-    <AppShell title="Today" onBack={() => router.push("/launch-home")}>
-      <p className="text-sm text-slate-600 mb-4">
-        Pick one job. Do not try to do the whole app at once.
-      </p>
+    <AppShell title="Today" onBack={() => router.push("/hub")}>
+      {suggested && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
+          <p className="text-xs text-slate-500">Best next step</p>
+          <p className="font-semibold mt-1">{suggested.label}</p>
+          <p className="text-sm text-slate-600 mt-1">{suggested.reason}</p>
+          <button
+            type="button"
+            onClick={() => router.push(suggested.href)}
+            className="mt-3 w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-xl"
+          >
+            Do this
+          </button>
+        </div>
+      )}
+
+      <p className="text-sm text-slate-600 mb-3">Or pick your own focus</p>
       <div className="space-y-2 mb-4">
         {CHOICES.map((choice) => (
           <button
@@ -70,16 +84,10 @@ export default function TodayPage() {
       </button>
       <button
         type="button"
-        onClick={() => {
-          if (focus.includes("photos")) router.push("/photo-check");
-          else if (focus.includes("bio")) router.push("/bio-help");
-          else if (focus.includes("likes")) router.push("/likes");
-          else if (focus.includes("date")) router.push("/first-date");
-          else router.push("/messages");
-        }}
-        className="w-full bg-rose-500 hover:bg-rose-600 text-white font-semibold py-3 rounded-xl"
+        onClick={() => router.push("/done-today")}
+        className="w-full bg-white border border-slate-200 py-3 rounded-xl"
       >
-        Start this
+        I did one thing today
       </button>
       {status && <p className="text-sm text-emerald-700 mt-3">{status}</p>}
     </AppShell>

@@ -35,7 +35,7 @@ export default function FreshnessPage() {
         <p className="text-sm text-slate-500">Your activity looks like</p>
         <p className="text-2xl font-bold mt-2">{label}</p>
         <p className="text-sm text-slate-600 mt-3">
-          Open the app and swipe or chat so people see you as present.
+          Open swipe or chat so people see you as present.
         </p>
       </div>
     </AppShell>

@@ -39,7 +39,7 @@ export default function AfterMatchPickerPage() {
   return (
     <AppShell title="After a match" onBack={() => router.push("/matches")}>
       <p className="text-sm text-slate-600 mb-4">
-        Pick a match and follow the short checklist.
+        Pick a match. Send one message, suggest one plan, leave a safety note.
       </p>
       <div className="space-y-2">
         {rows.map((row) => (
@@ -53,9 +53,7 @@ export default function AfterMatchPickerPage() {
             <span className="block text-xs text-slate-400 break-all mt-1">{row.id}</span>
           </button>
         ))}
-        {rows.length === 0 && (
-          <p className="text-sm text-slate-500">No matches yet.</p>
-        )}
+        {rows.length === 0 && <p className="text-sm text-slate-500">No matches yet.</p>}
       </div>
     </AppShell>
   );

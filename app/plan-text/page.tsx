@@ -27,7 +27,7 @@ export default function PlanTextPage() {
         .maybeSingle();
       const ideas = await loadDateIdeas(data?.neighborhood);
       const idea = ideas[0]?.title || "coffee somewhere public";
-      setText(`Want to try this: ${idea}? Daytime, easy exit if it’s not a fit.`);
+      setText(`Want to try this: ${idea}? Daytime, easy to leave if it is not a fit.`);
     };
     run();
   }, [account, loading, router]);
