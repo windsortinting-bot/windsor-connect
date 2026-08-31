@@ -2,21 +2,21 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabaseClient";
+import { signOutNow } from "../../lib/signOutNow";
 
 export default function LogoutPage() {
   const router = useRouter();
-  const [message, setMessage] = useState("Signing you out...");
+  const [message, setMessage] = useState("Signing out...");
 
   useEffect(() => {
     const run = async () => {
       try {
-        await supabase.auth.signOut();
+        await signOutNow();
         setMessage("Signed out.");
       } catch {
-        setMessage("Signed out locally.");
+        setMessage("Signed out on this device.");
       }
-      setTimeout(() => router.replace("/auth"), 400);
+      setTimeout(() => router.replace("/auth"), 500);
     };
     run();
   }, [router]);

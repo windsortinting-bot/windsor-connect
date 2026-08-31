@@ -2,66 +2,60 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { hasSupabaseEnv, supabase } from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 import AppShell from "../components/AppShell";
+
+type Row = { label: string; ok: boolean };
 
 export default function SmokePage() {
   const router = useRouter();
-  const [session, setSession] = useState("checking");
-  const [health, setHealth] = useState("checking");
+  const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
     const run = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        setSession(user ? "signed in" : "signed out");
-      } catch {
-        setSession("error");
-      }
+      const checks: Row[] = [];
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      checks.push({
+        label: "Supabase env loaded",
+        ok: url.startsWith("https://") && url.includes("supabase.co"),
+      });
 
-      try {
-        const res = await fetch("/api/health");
-        const json = await res.json();
-        setHealth(json?.ok ? "ok" : "down");
-      } catch {
-        setHealth("down");
-      }
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+      checks.push({
+        label: "Auth session call works",
+        ok: !sessionError,
+      });
+      checks.push({
+        label: "Signed in",
+        ok: Boolean(sessionData.session?.user),
+      });
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .limit(1);
+      checks.push({ label: "Profiles table reachable", ok: !profileError });
+
+      setRows(checks);
     };
     run();
   }, []);
 
   return (
-    <AppShell title="Smoke" onBack={() => router.push("/testers")}>
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 text-sm space-y-2 mb-6">
-        <p>App render: ok</p>
-        <p>Supabase env: {hasSupabaseEnv ? "yes" : "no"}</p>
-        <p>Session: {session}</p>
-        <p>Health API: {health}</p>
-      </div>
-      <div className="space-y-3">
-        <button
-          type="button"
-          onClick={() => router.push("/testers")}
-          className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-left text-sm"
-        >
-          Tester notes
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push("/settings")}
-          className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-left text-sm"
-        >
-          Settings
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push("/logout")}
-          className="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-left text-sm"
-        >
-          Logout
-        </button>
+    <AppShell title="Smoke test" onBack={() => router.push("/profile")}>
+      <div className="space-y-2">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm flex justify-between"
+          >
+            <span>{row.label}</span>
+            <span className={row.ok ? "text-emerald-600" : "text-rose-600"}>
+              {row.ok ? "OK" : "FAIL"}
+            </span>
+          </div>
+        ))}
       </div>
     </AppShell>
   );

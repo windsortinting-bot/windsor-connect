@@ -7,6 +7,11 @@ import LogoutButton from "../components/LogoutButton";
 import { ArrowLeft } from "lucide-react";
 
 const LINKS = [
+  { href: "/switch-account", label: "Switch account" },
+  { href: "/welcome-back", label: "Welcome back" },
+  { href: "/smoke", label: "Smoke test" },
+  { href: "/testers", label: "Tester list" },
+  { href: "/go", label: "Quick start" },
   { href: "/settings/chat", label: "Chat settings" },
   { href: "/settings/notifications", label: "Notifications" },
   { href: "/filters", label: "Discovery filters" },
@@ -73,10 +78,7 @@ export default function SettingsPage() {
               {l.label}
             </button>
           ))}
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 mt-8">
-          <LogoutButton className="w-full justify-center text-rose-600 hover:text-rose-700 font-medium" />
+          <LogoutButton className="w-full bg-slate-900 text-white font-semibold py-3 rounded-xl" />
         </div>
       </div>
     </div>
