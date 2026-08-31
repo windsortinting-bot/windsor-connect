@@ -6,8 +6,3 @@ export const WINDSOR_NEIGHBORHOODS = [
   "South Windsor",
   "University of Windsor",
 ];
-
-export function isKnownNeighborhood(value?: string | null): boolean {
-  if (!value) return false;
-  return WINDSOR_NEIGHBORHOODS.includes(value);
-}
