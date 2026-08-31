@@ -25,9 +25,12 @@ export default function AppShell({
               Back
             </button>
           )}
-          {title && <h1 className="text-2xl font-bold flex-1">{title}</h1>}
-          {!title && <div className="flex-1" />}
-          <LogoutButton />
+          {title ? (
+            <h1 className="text-2xl font-bold flex-1">{title}</h1>
+          ) : (
+            <div className="flex-1" />
+          )}
+          <LogoutButton className="text-sm text-rose-600 font-medium" />
         </div>
         {children}
       </div>

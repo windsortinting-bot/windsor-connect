@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import LogoutButton from "../components/LogoutButton";
 import {
   ChevronLeft,
   ChevronRight,
@@ -83,7 +84,7 @@ export default function ProfileHubPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
         Loading profile...
       </div>
     );
@@ -91,11 +92,11 @@ export default function ProfileHubPage() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white px-4">
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center text-slate-700 px-4">
         <p>Profile not found.</p>
         <button
           onClick={() => router.push("/onboarding")}
-          className="mt-4 bg-rose-500 px-6 py-3 rounded-xl text-sm"
+          className="mt-4 bg-rose-500 text-white px-6 py-3 rounded-xl text-sm"
         >
           Complete profile
         </button>
@@ -117,25 +118,29 @@ export default function ProfileHubPage() {
   ].filter(Boolean) as { q: string | null; a: string }[];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
+    <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Profile</h1>
-          <button
-            onClick={() => router.push("/settings")}
-            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <LogoutButton className="text-sm font-semibold text-rose-600 px-3 py-2" />
+            <button
+              type="button"
+              onClick={() => router.push("/settings")}
+              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {profile.is_paused && (
-          <div className="mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-sm rounded-xl px-4 py-3">
-            Your profile is paused — you’re hidden from discovery.
+          <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
+            Your profile is paused — you are hidden from discovery.
           </div>
         )}
 
-        <div className="relative w-full h-72 rounded-3xl overflow-hidden bg-slate-900 border border-slate-800 mb-4">
+        <div className="relative w-full h-72 rounded-3xl overflow-hidden bg-white border border-slate-200 mb-4">
           {photos.length > 0 ? (
             <img
               src={photos[photoIndex]}
@@ -144,7 +149,7 @@ export default function ProfileHubPage() {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <User className="w-12 h-12 text-slate-600" />
+              <User className="w-12 h-12 text-slate-400" />
             </div>
           )}
 
@@ -153,7 +158,7 @@ export default function ProfileHubPage() {
               <button
                 type="button"
                 onClick={() => setPhotoIndex((p) => Math.max(0, p - 1))}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center"
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -162,7 +167,7 @@ export default function ProfileHubPage() {
                 onClick={() =>
                   setPhotoIndex((p) => Math.min(photos.length - 1, p + 1))
                 }
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 flex items-center justify-center"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -175,15 +180,15 @@ export default function ProfileHubPage() {
           {profile.age ? `, ${profile.age}` : ""}
         </h2>
         {profile.neighborhood && (
-          <p className="text-rose-400 text-sm mt-1">{profile.neighborhood}</p>
+          <p className="text-rose-500 text-sm mt-1">{profile.neighborhood}</p>
         )}
 
         <div className="grid grid-cols-2 gap-3 my-5">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 text-center">
             <p className="text-2xl font-bold">{matchCount}</p>
             <p className="text-xs text-slate-500 mt-1">Matches</p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 text-center">
             <p className="text-2xl font-bold">{likeCount}</p>
             <p className="text-xs text-slate-500 mt-1">Likes received</p>
           </div>
@@ -192,22 +197,22 @@ export default function ProfileHubPage() {
         {(profile.height || profile.kids_status || profile.kids_preference) && (
           <div className="flex flex-wrap gap-2 mb-4 text-xs">
             {profile.height && (
-              <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+              <span className="bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
                 {profile.height}
               </span>
             )}
             {profile.kids_status === "have_kids" && (
-              <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+              <span className="bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
                 Has kids
               </span>
             )}
             {profile.kids_preference === "want" && (
-              <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+              <span className="bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
                 Wants kids
               </span>
             )}
             {profile.kids_preference === "dont_want" && (
-              <span className="bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full">
+              <span className="bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
                 Doesn’t want kids
               </span>
             )}
@@ -215,7 +220,7 @@ export default function ProfileHubPage() {
         )}
 
         {profile.bio && (
-          <p className="text-slate-300 text-sm leading-relaxed mb-4">
+          <p className="text-slate-600 text-sm leading-relaxed mb-4">
             {profile.bio}
           </p>
         )}
@@ -223,9 +228,12 @@ export default function ProfileHubPage() {
         {prompts.length > 0 && (
           <div className="space-y-2 mb-6">
             {prompts.map((p, i) => (
-              <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-3">
+              <div
+                key={i}
+                className="bg-white border border-slate-200 rounded-xl px-3 py-3"
+              >
                 <p className="text-[11px] text-slate-500 mb-1">{p.q}</p>
-                <p className="text-sm text-slate-200">{p.a}</p>
+                <p className="text-sm text-slate-800">{p.a}</p>
               </div>
             ))}
           </div>
@@ -233,39 +241,45 @@ export default function ProfileHubPage() {
 
         <div className="space-y-3">
           <button
+            type="button"
             onClick={() => router.push("/onboarding")}
             className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold py-3 rounded-xl"
           >
             Edit profile
           </button>
           <button
+            type="button"
             onClick={() => router.push("/filters")}
-            className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 py-3 rounded-xl text-sm"
+            className="w-full bg-white border border-slate-200 hover:bg-slate-50 py-3 rounded-xl text-sm"
           >
             Discovery filters
           </button>
           <button
+            type="button"
             onClick={() => router.push("/activity")}
-            className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
+            className="w-full bg-white border border-slate-200 hover:bg-slate-50 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
           >
-            <Heart className="w-4 h-4 text-rose-400" />
+            <Heart className="w-4 h-4 text-rose-500" />
             Activity
           </button>
           <button
+            type="button"
             onClick={() => router.push("/safety")}
-            className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
+            className="w-full bg-white border border-slate-200 hover:bg-slate-50 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
           >
-            <Shield className="w-4 h-4 text-rose-400" />
+            <Shield className="w-4 h-4 text-rose-500" />
             Safety
           </button>
           {profile.is_admin && (
             <button
+              type="button"
               onClick={() => router.push("/admin")}
-              className="w-full bg-slate-900 border border-amber-500/30 text-amber-300 hover:bg-slate-800 py-3 rounded-xl text-sm"
+              className="w-full bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 py-3 rounded-xl text-sm"
             >
               Admin dashboard
             </button>
           )}
+          <LogoutButton className="w-full bg-slate-900 text-white font-semibold py-3 rounded-xl" />
         </div>
       </div>
     </div>

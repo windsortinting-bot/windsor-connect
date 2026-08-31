@@ -6,8 +6,10 @@ import { supabase } from "../../lib/supabaseClient";
 
 export default function LogoutButton({
   className,
+  label,
 }: {
   className?: string;
+  label?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -29,10 +31,10 @@ export default function LogoutButton({
       disabled={busy}
       className={
         className ||
-        "text-sm text-slate-500 hover:text-rose-600 disabled:opacity-60"
+        "text-sm text-slate-400 hover:text-rose-400 disabled:opacity-60"
       }
     >
-      {busy ? "Signing out..." : "Log out"}
+      {busy ? "Signing out..." : label || "Log out"}
     </button>
   );
 }
