@@ -22,6 +22,7 @@ export const ROUTES = {
 export const PUBLIC_PATHS = new Set([
   "/",
   "/auth",
+  "/auth/env-check",
   "/logout",
   "/welcome",
   "/about",

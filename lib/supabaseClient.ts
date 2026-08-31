@@ -1,17 +1,28 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseUrl = (
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_PROJECT_URL ||
+  ""
+).trim();
+
+const supabaseAnonKey = (
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_KEY ||
+  ""
+).trim();
 
 export const hasSupabaseEnv = Boolean(
   supabaseUrl.startsWith("https://") &&
-    supabaseAnonKey.length > 20 &&
-    !supabaseUrl.includes("placeholder")
+    supabaseUrl.includes(".supabase.co") &&
+    supabaseAnonKey.startsWith("eyJ") &&
+    !supabaseUrl.includes("placeholder") &&
+    !supabaseAnonKey.includes("placeholder")
 );
 
 export const supabase = createClient(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder-anon-key",
+  hasSupabaseEnv ? supabaseUrl : "https://placeholder.supabase.co",
+  hasSupabaseEnv ? supabaseAnonKey : "placeholder-anon-key",
   {
     auth: {
       persistSession: true,
@@ -28,11 +39,11 @@ export function explainFetchError(err: unknown): string {
       : String(err || "");
 
   if (!hasSupabaseEnv) {
-    return "Login cannot reach the database. NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY is missing on this site.";
+    return "Cannot sign in. Supabase environment variables are missing on this deployment.";
   }
 
-  if (/failed to fetch/i.test(raw) || /fetch/i.test(raw)) {
-    return "Failed to fetch Supabase. Check the project URL, that this site is allowed, and your internet connection.";
+  if (/failed to fetch/i.test(raw)) {
+    return "Failed to reach Supabase. Check the Project URL and that this website is allowed in Supabase Auth URL settings.";
   }
 
   return raw || "Could not sign in.";
