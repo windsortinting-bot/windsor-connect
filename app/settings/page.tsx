@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import LogoutButton from "../components/LogoutButton";
 import { ArrowLeft } from "lucide-react";
 
 const LINKS = [
@@ -72,6 +73,10 @@ export default function SettingsPage() {
               {l.label}
             </button>
           ))}
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 mt-8">
+          <LogoutButton className="w-full justify-center text-rose-600 hover:text-rose-700 font-medium" />
         </div>
       </div>
     </div>
