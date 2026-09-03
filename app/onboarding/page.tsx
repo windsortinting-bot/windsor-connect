@@ -188,7 +188,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/welcome");
+    router.push("/profile");
   };
 
   if (loading) {
@@ -202,6 +202,16 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) router.back();
+            else router.push("/profile");
+          }}
+          className="text-slate-400 hover:text-white text-sm mb-6"
+        >
+          ← Back
+        </button>
         <h1 className="text-3xl font-bold mb-2">Complete your profile</h1>
         <p className="text-slate-500 text-sm mb-8">
           This helps people in Windsor find you

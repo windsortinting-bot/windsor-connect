@@ -54,7 +54,7 @@ export default function WelcomePage() {
         .update({ seen_welcome: true })
         .eq("id", userId);
     }
-    router.push("/swipe");
+    router.push("/profile");
   };
 
   const slide = SLIDES[index];
@@ -64,6 +64,13 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm text-center">
+        <button
+          type="button"
+          onClick={() => router.push("/profile")}
+          className="text-slate-400 hover:text-white text-sm mb-6"
+        >
+          ← Back to profile
+        </button>
         <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto mb-6">
           <Icon className="w-8 h-8" />
         </div>
@@ -95,7 +102,7 @@ export default function WelcomePage() {
             onClick={finish}
             className="w-full bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold py-3 rounded-xl"
           >
-            Start swiping
+            Go to my profile
           </button>
         )}
 
