@@ -115,7 +115,7 @@ export default function OnboardingPage() {
     }
 
     setUploading(true);
-    setMessage("");
+    setMessage("Please wait. Uploading your photo…");
 
     const ext = file.name.split(".").pop() || "jpg";
     const path = `${userId}/${Date.now()}.${ext}`;
@@ -125,14 +125,17 @@ export default function OnboardingPage() {
       .upload(path, file, { upsert: true });
 
     if (error) {
-      setMessage(error.message);
+      setMessage(`Photo did not upload: ${error.message}`);
       setUploading(false);
+      e.target.value = "";
       return;
     }
 
     const { data } = supabase.storage.from("profile-photos").getPublicUrl(path);
     setPhotos((prev) => [...prev, data.publicUrl].slice(0, 3));
     setUploading(false);
+    setMessage("Photo uploaded.");
+    e.target.value = "";
   };
 
   const removePhoto = (url: string) => {
@@ -232,6 +235,60 @@ export default function OnboardingPage() {
               required
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             />
+          </div>
+
+          <div className="border border-rose-500/40 bg-rose-500/10 rounded-2xl p-4">
+            <p className="text-white font-semibold mb-1">Add your photos</p>
+            <p className="text-xs text-slate-300 mb-3">
+              Use Choose from gallery for pictures already on your phone. Use Take photo for the camera. Wait until you see Photo uploaded.
+            </p>
+            <div className="flex gap-2 mb-3 flex-wrap">
+              {photos.map((url) => (
+                <div key={url} className="relative w-24 h-24 rounded-xl overflow-hidden">
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(url)}
+                    className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 rounded"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+            {photos.length < 3 && (
+              <div className="grid grid-cols-2 gap-2">
+                <label className="bg-white text-slate-900 text-center text-sm font-semibold py-3 rounded-xl cursor-pointer">
+                  Choose from gallery
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/*"
+                    onChange={handleUpload}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+                <label className="bg-slate-800 border border-slate-600 text-white text-center text-sm font-semibold py-3 rounded-xl cursor-pointer">
+                  Take photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleUpload}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            )}
+            {uploading && (
+              <p className="text-sm text-amber-300 mt-3">Please wait. Upload in progress…</p>
+            )}
+            {!uploading && photos.length > 0 && (
+              <p className="text-sm text-emerald-400 mt-3">
+                {photos.length} photo{photos.length > 1 ? "s" : ""} ready.
+              </p>
+            )}
           </div>
 
           <div>
@@ -405,36 +462,6 @@ export default function OnboardingPage() {
               maxLength={400}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             />
-          </div>
-
-          <div>
-            <label className="text-sm text-slate-400 block mb-2">Photos (up to 3)</label>
-            <div className="flex gap-2 mb-2 flex-wrap">
-              {photos.map((url) => (
-                <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden">
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(url)}
-                    className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1.5 rounded"
-                  >
-                    x
-                  </button>
-                </div>
-              ))}
-            </div>
-            {photos.length < 3 && (
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleUpload}
-                disabled={uploading}
-                className="text-sm text-slate-400"
-              />
-            )}
-            {uploading && (
-              <p className="text-xs text-slate-500 mt-1">Uploading...</p>
-            )}
           </div>
 
           <div className="space-y-4 border-t border-slate-800 pt-4">

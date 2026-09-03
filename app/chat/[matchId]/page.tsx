@@ -30,6 +30,7 @@ export default function ChatPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [otherTyping, setOtherTyping] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [lastSentId, setLastSentId] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
@@ -194,6 +195,7 @@ export default function ChatPage() {
         if (withoutTemp.some((m) => m.id === real.id)) return withoutTemp;
         return [...withoutTemp, real];
       });
+      setLastSentId(real.id);
     } catch (err: any) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -325,11 +327,17 @@ export default function ChatPage() {
                     onClick={() => retryFailed(m)}
                     className="text-[11px] text-rose-600 mt-1"
                   >
-                    Failed · tap to retry
+                    Not sent · tap to retry
                   </button>
                 )}
-                {m.pending && !m.failed && (
+                {mine && m.pending && !m.failed && (
                   <span className="text-[11px] text-slate-400 mt-1">Sending…</span>
+                )}
+                {mine && !m.pending && !m.failed && lastSentId === m.id && (
+                  <span className="text-[11px] text-emerald-600 mt-1">Sent</span>
+                )}
+                {mine && !m.pending && !m.failed && lastSentId !== m.id && (
+                  <span className="text-[11px] text-slate-400 mt-1">Sent</span>
                 )}
               </div>
             );
@@ -362,7 +370,7 @@ export default function ChatPage() {
               disabled={sending || !text.trim()}
               className="bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-3 rounded-xl"
             >
-              Send
+              {sending ? "Sending…" : "Send"}
             </button>
           </div>
           <div className="h-14" />
