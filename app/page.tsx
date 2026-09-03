@@ -13,7 +13,7 @@ export default function LandingPage() {
   );
   const [message, setMessage] = useState("");
 
-  const handleWaitlist = async (e: React.FormEvent) => {
+  const handleUpdates = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
 
@@ -28,7 +28,7 @@ export default function LandingPage() {
     if (error) {
       if (error.message.toLowerCase().includes("duplicate")) {
         setStatus("success");
-        setMessage("You’re already on the list.");
+        setMessage("We already have that email.");
       } else {
         setStatus("error");
         setMessage(error.message);
@@ -37,7 +37,7 @@ export default function LandingPage() {
     }
 
     setStatus("success");
-    setMessage("You’re on the Windsor waitlist.");
+    setMessage("Saved. We will email you when more Windsor people join.");
     setEmail("");
   };
 
@@ -55,7 +55,7 @@ export default function LandingPage() {
             onClick={() => router.push("/auth")}
             className="text-sm bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-xl"
           >
-            Get started
+            Sign in
           </button>
         </div>
       </header>
@@ -72,8 +72,8 @@ export default function LandingPage() {
             Walkerville, Riverside & beyond
           </h1>
           <p className="text-slate-400 max-w-xl mx-auto mb-8">
-            A city-first dating app for the 519. Small daily batches, local
-            profiles, and fewer endless swipe traps.
+            A dating site for people in Windsor. Create an account if you have
+            an invite code. Or leave your email and we will tell you when to join.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-10">
@@ -81,7 +81,7 @@ export default function LandingPage() {
               onClick={() => router.push("/auth")}
               className="bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold px-6 py-3 rounded-xl"
             >
-              Join Windsor Connect
+              Create an account
             </button>
             <button
               onClick={() => router.push("/help")}
@@ -92,7 +92,7 @@ export default function LandingPage() {
           </div>
 
           <form
-            onSubmit={handleWaitlist}
+            onSubmit={handleUpdates}
             className="max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-3"
           >
             <input
@@ -100,7 +100,7 @@ export default function LandingPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email for waitlist updates"
+              placeholder="Your email"
               className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             />
             <button
@@ -108,9 +108,12 @@ export default function LandingPage() {
               disabled={status === "loading"}
               className="bg-rose-500 hover:bg-rose-600 disabled:opacity-60 text-white font-semibold px-5 py-3 rounded-xl"
             >
-              {status === "loading" ? "Joining..." : "Join waitlist"}
+              {status === "loading" ? "Saving..." : "Email me updates"}
             </button>
           </form>
+          <p className="mt-3 text-xs text-slate-500">
+            This does not create an account. Use Create an account if you already have an invite.
+          </p>
           {message && (
             <p
               className={`mt-3 text-sm ${

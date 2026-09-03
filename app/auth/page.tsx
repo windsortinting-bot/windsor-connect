@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
+import { Eye, EyeOff, Heart } from "lucide-react";
 import {
   explainFetchError,
   hasSupabaseEnv,
@@ -16,6 +16,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
   );
@@ -33,20 +34,28 @@ export default function AuthPage() {
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("error") === "confirm") {
-      setMessage("Email confirmation failed. Try signing in again.");
+      setMessage("Email confirmation failed. Try Sign in, or resend the email.");
       setStatus("error");
     }
     const code = params.get("code");
-    if (code) {
+    if (code && code.length <= 24) {
       setInviteCode(code.toUpperCase());
       setIsLogin(false);
+    }
+
+    const hash = window.location.hash.replace("#", "");
+    const hashParams = new URLSearchParams(hash);
+    if (hashParams.get("type") === "signup" || hashParams.get("access_token")) {
+      setMessage("Email confirmed. Sign in with your password.");
+      setStatus("success");
+      setIsLogin(true);
     }
   }, []);
 
   const validateInviteCode = async (raw: string) => {
     const code = raw.trim().toUpperCase();
     if (!code) {
-      return { ok: false as const, error: "Invite code required for signup" };
+      return { ok: false as const, error: "Invite code required to create an account" };
     }
 
     const { data, error } = await supabase
@@ -66,6 +75,32 @@ export default function AuthPage() {
       return { ok: false as const, error: "This invite code is full" };
     }
     return { ok: true as const, row: data };
+  };
+
+  const resendConfirm = async () => {
+    if (!email.trim()) {
+      setStatus("error");
+      setMessage("Enter your email first, then tap Resend confirmation.");
+      return;
+    }
+    setStatus("loading");
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: {
+        emailRedirectTo:
+          typeof window !== "undefined"
+            ? `${window.location.origin}/auth`
+            : undefined,
+      },
+    });
+    if (error) {
+      setStatus("error");
+      setMessage(explainFetchError(error));
+      return;
+    }
+    setStatus("success");
+    setMessage("Confirmation email sent. Check inbox and spam, then sign in.");
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -89,6 +124,14 @@ export default function AuthPage() {
         });
 
         if (error) {
+          const text = error.message || "";
+          if (text.toLowerCase().includes("email not confirmed")) {
+            setStatus("error");
+            setMessage(
+              "Your email is not confirmed yet. Open the email from Supabase, or tap Resend confirmation below."
+            );
+            return;
+          }
           setStatus("error");
           setMessage(explainFetchError(error));
           return;
@@ -161,9 +204,16 @@ export default function AuthPage() {
           });
         }
 
+        if (data.session) {
+          setStatus("success");
+          setMessage("Account created. Continue to your profile.");
+          router.push("/onboarding");
+          return;
+        }
+
         setStatus("success");
         setMessage(
-          "Account created. Check your email if confirmation is required, then sign in."
+          "Account created. Check your email for a Confirm link. Then come back here and Sign in."
         );
         setIsLogin(true);
       }
@@ -182,7 +232,7 @@ export default function AuthPage() {
           </div>
           <h1 className="text-3xl font-bold text-white">Windsor Connect</h1>
           <p className="text-slate-400 mt-2">
-            {isLogin ? "Welcome back" : "Join with an invite code"}
+            {isLogin ? "Sign in to your account" : "Create an account with your invite code"}
           </p>
         </div>
 
@@ -222,18 +272,28 @@ export default function AuthPage() {
             required
             className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500"
           />
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete={isLogin ? "current-password" : "new-password"}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-rose-500"
-          />
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete={isLogin ? "current-password" : "new-password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 pr-12 rounded-xl outline-none focus:border-rose-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
           <button
             type="submit"
             disabled={status === "loading"}
@@ -242,19 +302,26 @@ export default function AuthPage() {
             {status === "loading"
               ? "Please wait..."
               : isLogin
-              ? "Sign In"
-              : "Create Account"}
+              ? "Sign in"
+              : "Create account"}
           </button>
         </form>
 
         {isLogin && (
-          <div className="mt-3 text-center">
+          <div className="mt-3 flex items-center justify-between text-sm">
             <button
               type="button"
               onClick={() => router.push("/auth/forgot-password")}
-              className="text-sm text-slate-500 hover:text-slate-300"
+              className="text-slate-500 hover:text-slate-300"
             >
               Forgot password?
+            </button>
+            <button
+              type="button"
+              onClick={resendConfirm}
+              className="text-slate-500 hover:text-slate-300"
+            >
+              Resend confirmation
             </button>
           </div>
         )}
@@ -280,7 +347,7 @@ export default function AuthPage() {
             className="text-sm text-slate-400 hover:text-white transition-colors"
           >
             {isLogin
-              ? "Don't have an account? Create one"
+              ? "New here? Create an account"
               : "Already have an account? Sign in"}
           </button>
         </div>
