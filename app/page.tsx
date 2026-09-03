@@ -1,45 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabaseClient";
 import { Heart, MapPin, Coffee, Sparkles, Beer, Utensils } from "lucide-react";
 
 export default function LandingPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
-    "idle"
-  );
-  const [message, setMessage] = useState("");
-
-  const handleUpdates = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-
-    setStatus("loading");
-    setMessage("");
-
-    const { error } = await supabase.from("waitlist").insert({
-      email: email.trim().toLowerCase(),
-      source: "landing",
-    });
-
-    if (error) {
-      if (error.message.toLowerCase().includes("duplicate")) {
-        setStatus("success");
-        setMessage("We already have that email.");
-      } else {
-        setStatus("error");
-        setMessage(error.message);
-      }
-      return;
-    }
-
-    setStatus("success");
-    setMessage("Saved. We will email you when more Windsor people join.");
-    setEmail("");
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -64,16 +30,16 @@ export default function LandingPage() {
         <section className="max-w-5xl mx-auto px-4 pt-14 pb-10 text-center">
           <p className="text-rose-400 text-sm font-medium mb-3 flex items-center justify-center gap-1">
             <MapPin className="w-4 h-4" />
-            Built for Windsor, ON
+            Windsor, LaSalle, Tecumseh, Amherstburg & nearby
           </p>
           <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight mb-4">
             Real connections across
             <br />
-            Walkerville, Riverside & beyond
+            the Windsor area
           </h1>
           <p className="text-slate-400 max-w-xl mx-auto mb-8">
-            A dating site for people in Windsor. Create an account if you have
-            an invite code. Or leave your email and we will tell you when to join.
+            A dating site for people in Windsor and the nearby towns. If you have
+            an invite code, create an account. If you already have one, sign in.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-10">
@@ -90,39 +56,6 @@ export default function LandingPage() {
               How it works
             </button>
           </div>
-
-          <form
-            onSubmit={handleUpdates}
-            className="max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-3"
-          >
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Your email"
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
-            />
-            <button
-              type="submit"
-              disabled={status === "loading"}
-              className="bg-rose-500 hover:bg-rose-600 disabled:opacity-60 text-white font-semibold px-5 py-3 rounded-xl"
-            >
-              {status === "loading" ? "Saving..." : "Email me updates"}
-            </button>
-          </form>
-          <p className="mt-3 text-xs text-slate-500">
-            This does not create an account. Use Create an account if you already have an invite.
-          </p>
-          {message && (
-            <p
-              className={`mt-3 text-sm ${
-                status === "success" ? "text-emerald-400" : "text-rose-400"
-              }`}
-            >
-              {message}
-            </p>
-          )}
         </section>
 
         <section className="max-w-5xl mx-auto px-4 pb-16">
@@ -131,18 +64,19 @@ export default function LandingPage() {
               <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-4">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h3 className="font-semibold text-white mb-2">Daily batches</h3>
+              <h3 className="font-semibold text-white mb-2">Local first</h3>
               <p className="text-sm text-slate-400">
-                A focused set of local people each day instead of infinite scroll.
+                Windsor plus LaSalle, Amherstburg, Tecumseh, St. Clair Beach,
+                Harrow, Colchester, Essex, Kingsville, and Belle River.
               </p>
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
                 <Coffee className="w-5 h-5" />
               </div>
-              <h3 className="font-semibold text-white mb-2">Local first</h3>
+              <h3 className="font-semibold text-white mb-2">Meet nearby</h3>
               <p className="text-sm text-slate-400">
-                Neighbourhoods, Windsor prompts, and meetups that actually make sense.
+                Short drives. Public first dates. No 90-minute mystery trips.
               </p>
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
@@ -151,7 +85,7 @@ export default function LandingPage() {
               </div>
               <h3 className="font-semibold text-white mb-2">Safer chat</h3>
               <p className="text-sm text-slate-400">
-                Match expiry, message limits, block/report tools, and safety tips.
+                Match tools, block/report, and simple safety tips.
               </p>
             </div>
           </div>
@@ -160,18 +94,16 @@ export default function LandingPage() {
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
               <Utensils className="w-5 h-5" />
             </div>
-            <h3 className="font-semibold text-white">Vito’s Pizzeria energy</h3>
-            <p className="text-xs text-rose-400 font-medium mt-0.5">Via Italia</p>
+            <h3 className="font-semibold text-white">Windsor-area first dates</h3>
             <p className="text-sm text-slate-400 mt-2">
-              Built for real first dates in Windsor — coffee, walks by the river,
-              and neighbourhood spots.
+              Coffee in Walkerville, a patio in Tecumseh, or a walk by the river.
             </p>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
-        © {new Date().getFullYear()} Windsor Connect. Built for Windsor, ON.
+        © {new Date().getFullYear()} Windsor Connect. Built for the Windsor area.
       </footer>
     </div>
   );

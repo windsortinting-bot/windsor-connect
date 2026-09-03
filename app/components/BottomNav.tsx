@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { getUniqueMatchCount } from "../../lib/matching";
@@ -15,39 +15,53 @@ export default function BottomNav() {
   const [likeCount, setLikeCount] = useState(0);
   const [unread, setUnread] = useState(0);
 
+  const load = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const [matches, unreadCount] = await Promise.all([
+      getUniqueMatchCount(user.id),
+      countUnreadMessages(user.id),
+    ]);
+    setMatchCount(matches);
+    setUnread(unreadCount);
+
+    const { data: mySwipes } = await supabase
+      .from("swipes")
+      .select("target_id")
+      .eq("swiper_id", user.id);
+
+    const answered = new Set((mySwipes || []).map((s) => s.target_id));
+
+    const { data: incoming } = await supabase
+      .from("swipes")
+      .select("swiper_id")
+      .eq("target_id", user.id)
+      .eq("action", "like");
+
+    const pending = (incoming || []).filter((l) => !answered.has(l.swiper_id));
+    setLikeCount(pending.length);
+  }, []);
+
   useEffect(() => {
-    const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const [matches, unreadCount] = await Promise.all([
-        getUniqueMatchCount(user.id),
-        countUnreadMessages(user.id),
-      ]);
-      setMatchCount(matches);
-      setUnread(unreadCount);
-
-      const { data: mySwipes } = await supabase
-        .from("swipes")
-        .select("target_id")
-        .eq("swiper_id", user.id);
-
-      const answered = new Set((mySwipes || []).map((s) => s.target_id));
-
-      const { data: incoming } = await supabase
-        .from("swipes")
-        .select("swiper_id")
-        .eq("target_id", user.id)
-        .eq("action", "like");
-
-      const pending = (incoming || []).filter((l) => !answered.has(l.swiper_id));
-      setLikeCount(pending.length);
-    };
-
     load();
-  }, [pathname]);
+    const timer = window.setInterval(load, 4000);
+    const onFocus = () => load();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("windsor-nav-refresh", load);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("windsor-nav-refresh", load);
+    };
+  }, [load, pathname]);
 
   const hideOn = ["/", "/auth", "/onboarding", "/maintenance"];
   if (hideOn.some((p) => pathname === p || pathname?.startsWith("/auth"))) {

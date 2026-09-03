@@ -3,15 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
-
-const NEIGHBORHOODS = [
-  "Walkerville",
-  "Downtown",
-  "Ford City",
-  "Riverside",
-  "South Windsor",
-  "University of Windsor",
-];
+import { AREA_OPTIONS } from "../../lib/neighborhoods";
 
 const PROMPT_OPTIONS = [
   "A perfect Windsor weekend looks like…",
@@ -101,6 +93,9 @@ export default function OnboardingPage() {
       prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]
     );
   };
+
+  const selectAllAreas = () => setPreferredNeighborhoods([...AREA_OPTIONS]);
+  const clearAreas = () => setPreferredNeighborhoods([]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!userId || !e.target.files?.length) return;
@@ -305,7 +300,7 @@ export default function OnboardingPage() {
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             >
               <option value="">Select</option>
-              {NEIGHBORHOODS.map((n) => (
+              {AREA_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -315,10 +310,26 @@ export default function OnboardingPage() {
 
           <div>
             <label className="text-sm text-slate-400 block mb-2">
-              Preferred neighborhoods (optional)
+              Preferred towns and neighborhoods (optional)
             </label>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={selectAllAreas}
+                className="px-3 py-1.5 rounded-full text-sm border border-rose-500 text-rose-300"
+              >
+                Select all towns
+              </button>
+              <button
+                type="button"
+                onClick={clearAreas}
+                className="px-3 py-1.5 rounded-full text-sm border border-slate-700 text-slate-400"
+              >
+                Clear
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2">
-              {NEIGHBORHOODS.map((n) => {
+              {AREA_OPTIONS.map((n) => {
                 const active = preferredNeighborhoods.includes(n);
                 return (
                   <button

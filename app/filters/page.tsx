@@ -4,17 +4,10 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { saveFilters } from "../../lib/profileActions";
+import { AREA_OPTIONS } from "../../lib/neighborhoods";
 import { ArrowLeft } from "lucide-react";
 
 const LOOKING = ["Men", "Women", "Everyone"];
-const NEIGHBORHOODS = [
-  "Walkerville",
-  "Downtown",
-  "Ford City",
-  "Riverside",
-  "South Windsor",
-  "University of Windsor",
-];
 
 export default function FiltersPage() {
   const router = useRouter();
@@ -115,9 +108,25 @@ export default function FiltersPage() {
           ))}
         </div>
 
-        <p className="text-sm font-medium mb-2">Preferred neighborhoods</p>
+        <p className="text-sm font-medium mb-2">Preferred towns and neighborhoods</p>
+        <div className="flex gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => setSelected([...AREA_OPTIONS])}
+            className="px-3 py-2 rounded-xl text-sm border border-rose-400 text-rose-700 bg-rose-50"
+          >
+            Select all towns
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected([])}
+            className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white"
+          >
+            Clear
+          </button>
+        </div>
         <div className="space-y-2 mb-6">
-          {NEIGHBORHOODS.map((n) => (
+          {AREA_OPTIONS.map((n) => (
             <button
               key={n}
               type="button"
