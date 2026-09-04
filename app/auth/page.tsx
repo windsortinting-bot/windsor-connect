@@ -21,6 +21,7 @@ export default function AuthPage() {
     "idle"
   );
   const [message, setMessage] = useState("");
+  const [cheer, setCheer] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -207,7 +208,8 @@ export default function AuthPage() {
         if (data.session) {
           setStatus("success");
           setMessage("Account created. Continue to your profile.");
-          router.push("/onboarding");
+          setCheer("You’re in. Good start — now add a photo and finish your profile.");
+          window.setTimeout(() => router.push("/onboarding"), 900);
           return;
         }
 
@@ -215,6 +217,7 @@ export default function AuthPage() {
         setMessage(
           "Account created. Check your email for a Confirm link. Then come back here and Sign in."
         );
+        setCheer("Nice. Confirm the email, then come back and sign in.");
         setIsLogin(true);
       }
     } catch (err) {
@@ -225,6 +228,11 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+      {cheer && (
+        <div className="fixed top-4 left-4 right-4 z-50 max-w-md mx-auto bg-rose-100 text-rose-950 border border-rose-200 rounded-2xl px-4 py-3 text-sm shadow-lg">
+          {cheer}
+        </div>
+      )}
       <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8">
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center mx-auto mb-4">

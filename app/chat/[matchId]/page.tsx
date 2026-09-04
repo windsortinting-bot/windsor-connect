@@ -313,7 +313,7 @@ export default function ChatPage() {
                 <div
                   className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
                     mine
-                      ? "bg-teal-700 text-white"
+                      ? "bg-rose-200 text-rose-950"
                       : "bg-white border border-slate-200 text-slate-800"
                   } ${m.pending ? "opacity-70" : ""} ${
                     m.failed ? "ring-2 ring-rose-300" : ""
@@ -368,7 +368,7 @@ export default function ChatPage() {
             <button
               type="submit"
               disabled={sending || !text.trim()}
-              className="bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-sm font-semibold px-5 py-3 rounded-xl"
+              className="bg-rose-400 hover:bg-rose-500 disabled:opacity-50 text-white text-sm font-semibold px-5 py-3 rounded-xl"
             >
               {sending ? "Sending…" : "Send"}
             </button>

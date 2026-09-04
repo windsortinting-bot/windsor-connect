@@ -111,7 +111,10 @@ export default function OnboardingPage() {
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setMessage("Image must be under 5MB");
+      setMessage("That photo is too big. Use one under 5MB.");
+      setCheer("That photo is too big. Pick one under 5MB and try again.");
+      window.setTimeout(() => setCheer(""), 4000);
+      e.target.value = "";
       return;
     }
 
@@ -214,7 +217,7 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
       {cheer && (
-        <div className="fixed top-4 left-4 right-4 z-50 max-w-md mx-auto bg-teal-700 text-white rounded-2xl px-4 py-3 text-sm shadow-lg">
+        <div className="fixed top-4 left-4 right-4 z-50 max-w-md mx-auto bg-rose-100 text-rose-950 border border-rose-200 rounded-2xl px-4 py-3 text-sm shadow-lg">
           {cheer}
         </div>
       )}
@@ -251,7 +254,7 @@ export default function OnboardingPage() {
             />
           </div>
 
-          <div className="border border-rose-500/40 bg-rose-500/10 rounded-2xl p-4">
+          <div className="border border-slate-700 bg-slate-900 rounded-2xl p-4">
             <p className="text-white font-semibold mb-1">Add your photos</p>
             <p className="text-xs text-slate-300 mb-3">
               Use Upload your profile picture for photos already on your phone. Use Take photo for the camera. Wait until you see Photo uploaded.
