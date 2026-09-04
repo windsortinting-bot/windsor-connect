@@ -36,7 +36,7 @@ export default function AdminInvitesPage() {
 
     const { data, error } = await supabase
       .from("invite_codes")
-      .select("id, code, max_uses, uses, is_active, note")
+      .select("id, code, max_uses, is_active, note")
       .order("created_at", { ascending: false });
 
     if (error) setMessage(error.message);
@@ -53,7 +53,7 @@ export default function AdminInvitesPage() {
     const { error } = await supabase.from("invite_codes").insert({
       code: code.trim().toUpperCase(),
       max_uses: Number(maxUses) || 25,
-      uses: 0,
+      used_count: 0,
       is_active: true,
       note: note.trim() || null,
     });
@@ -95,7 +95,7 @@ export default function AdminInvitesPage() {
     <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-8 pb-28">
       <div className="max-w-md mx-auto">
         <button
-          onClick={() => router.push("/admin/links")}
+          onClick={() => router.push("/admin")}
           className="flex items-center gap-2 text-slate-500 mb-6"
           type="button"
         >

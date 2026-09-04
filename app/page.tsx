@@ -35,7 +35,7 @@ export default function LandingPage() {
           <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight mb-4">
             Real connections across
             <br />
-            the Windsor area
+            Windsor and surrounding area
           </h1>
           <p className="text-slate-400 max-w-xl mx-auto mb-8">
             A dating site for people in Windsor and the nearby towns. If you have
