@@ -37,6 +37,7 @@ export default function OnboardingPage() {
   >([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [cheer, setCheer] = useState("");
 
   const [prompt1, setPrompt1] = useState(PROMPT_OPTIONS[0]);
   const [prompt1Answer, setPrompt1Answer] = useState("");
@@ -136,6 +137,13 @@ export default function OnboardingPage() {
     setUploading(false);
     setMessage("Photo uploaded.");
     e.target.value = "";
+    const lines = [
+      "Look at you. Windsor just got more interesting.",
+      "Photo’s in. Let’s get this party started.",
+      "That’s the one. People will actually stop scrolling.",
+    ];
+    setCheer(lines[photos.length % lines.length]);
+    window.setTimeout(() => setCheer(""), 2800);
   };
 
   const removePhoto = (url: string) => {
@@ -191,7 +199,8 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/profile");
+    setCheer("Profile’s done. Don’t overthink it — go say hi.");
+    window.setTimeout(() => router.push("/profile"), 900);
   };
 
   if (loading) {
@@ -204,6 +213,11 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-8 pb-28">
+      {cheer && (
+        <div className="fixed top-4 left-4 right-4 z-50 max-w-md mx-auto bg-teal-700 text-white rounded-2xl px-4 py-3 text-sm shadow-lg">
+          {cheer}
+        </div>
+      )}
       <div className="max-w-md mx-auto">
         <button
           type="button"
@@ -240,7 +254,7 @@ export default function OnboardingPage() {
           <div className="border border-rose-500/40 bg-rose-500/10 rounded-2xl p-4">
             <p className="text-white font-semibold mb-1">Add your photos</p>
             <p className="text-xs text-slate-300 mb-3">
-              Use Choose from gallery for pictures already on your phone. Use Take photo for the camera. Wait until you see Photo uploaded.
+              Use Upload your profile picture for photos already on your phone. Use Take photo for the camera. Wait until you see Photo uploaded.
             </p>
             <div className="flex gap-2 mb-3 flex-wrap">
               {photos.map((url) => (
@@ -259,7 +273,7 @@ export default function OnboardingPage() {
             {photos.length < 3 && (
               <div className="grid grid-cols-2 gap-2">
                 <label className="bg-white text-slate-900 text-center text-sm font-semibold py-3 rounded-xl cursor-pointer">
-                  Choose from gallery
+                  Upload your profile picture
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/*"

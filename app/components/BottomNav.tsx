@@ -70,7 +70,7 @@ export default function BottomNav() {
 
   const items = [
     { href: "/swipe", label: "Swipe", icon: Home },
-    { href: "/likes", label: "Likes", icon: Sparkles, badge: likeCount },
+    { href: "/likes", label: likeCount > 0 ? "New likes" : "Likes", icon: Sparkles, badge: likeCount },
     { href: "/matches", label: "Matches", icon: Heart, badge: matchCount },
     { href: "/messages", label: "Chat", icon: MessageCircle, badge: unread },
     { href: "/profile", label: "Profile", icon: User },

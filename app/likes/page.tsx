@@ -96,17 +96,21 @@ export default function LikesPage() {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 px-4 py-6 pb-28">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-1">Likes you</h1>
+        <h1 className="text-2xl font-bold mb-1">
+          {profiles.length > 0 ? "New likes" : "Likes"}
+        </h1>
         <p className="text-sm text-slate-500 mb-6">
-          {profiles.length} waiting for your response
+          {profiles.length > 0
+            ? `${profiles.length} waiting for your response`
+            : "If you already matched, look under Matches — not here."}
         </p>
 
         {profiles.length === 0 ? (
           <EmptyState
-            title="No likes yet"
-            body="When someone likes you, they’ll show up here."
-            actionLabel="Go swipe"
-            onAction={() => router.push("/swipe")}
+            title="No new likes"
+            body="People you match with move to Matches. Fresh likes you have not answered yet show up here."
+            actionLabel="Open matches"
+            onAction={() => router.push("/matches")}
           />
         ) : (
           <div className="space-y-4">
