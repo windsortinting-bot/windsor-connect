@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { unmatchSafe } from "../../lib/matching";
+import { blockUser } from "../../lib/blocks";
 import EmptyState from "../components/EmptyState";
 import { MessageCircle, MapPin } from "lucide-react";
 
@@ -138,6 +139,18 @@ export default function MatchesPage() {
     setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
   };
 
+  const handleBlock = async (otherId: string, matchId: string) => {
+    if (!userId) return;
+    const ok = window.confirm("Block this person? They will be removed and will not see you.");
+    if (!ok) return;
+    try {
+      await blockUser(userId, otherId);
+      setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Could not block this person.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center text-slate-600">
@@ -206,12 +219,29 @@ export default function MatchesPage() {
                   </p>
                 </button>
 
-                <button
-                  onClick={() => handleUnmatch(m.matchId)}
-                  className="text-xs text-slate-500 hover:text-rose-600 self-start mt-1"
-                >
-                  Unmatch
-                </button>
+                <div className="flex flex-col gap-2 self-start">
+                  <button
+                    onClick={() => handleUnmatch(m.matchId)}
+                    className="text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg text-slate-600"
+                    type="button"
+                  >
+                    Unmatch
+                  </button>
+                  <button
+                    onClick={() => handleBlock(m.otherId, m.matchId)}
+                    className="text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg text-slate-600"
+                    type="button"
+                  >
+                    Block
+                  </button>
+                  <button
+                    onClick={() => router.push(`/report?userId=${m.otherId}`)}
+                    className="text-xs bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg text-rose-700"
+                    type="button"
+                  >
+                    Report
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -12,6 +12,7 @@ import {
   sendMessage,
 } from "../../../lib/chat";
 import { broadcastTyping, joinTypingChannel } from "../../../lib/typing";
+import { blockUser } from "../../../lib/blocks";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
 
@@ -22,6 +23,7 @@ export default function ChatPage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("Match");
+  const [otherId, setOtherId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
   const [allowed, setAllowed] = useState(false);
@@ -68,6 +70,7 @@ export default function ChatPage() {
         }
 
         setOtherName(participant.otherName);
+        setOtherId(participant.otherId);
         setAllowed(true);
 
         const msgs = await loadMessages(matchId);
@@ -289,6 +292,34 @@ export default function ChatPage() {
               {otherTyping ? " · typing…" : ""}
             </p>
           </div>
+          {otherId && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!userId || !otherId) return;
+                  const ok = window.confirm("Block this person?");
+                  if (!ok) return;
+                  try {
+                    await blockUser(userId, otherId);
+                    router.push("/matches");
+                  } catch (err: any) {
+                    setErrorMsg(err?.message || "Could not block");
+                  }
+                }}
+                className="text-xs bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg"
+              >
+                Block
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/report?userId=${otherId}`)}
+                className="text-xs bg-rose-50 border border-rose-200 text-rose-700 px-2 py-1 rounded-lg"
+              >
+                Report
+              </button>
+            </div>
+          )}
         </div>
 
         {errorMsg && (

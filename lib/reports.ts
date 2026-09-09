@@ -7,13 +7,22 @@ export async function createReport(params: {
   details?: string;
 }) {
   const { reporterId, reportedId, reason, details } = params;
+  const text = details ? `${reason}: ${details}` : reason;
 
-  const { error } = await supabase.from("reports").insert({
+  const first = await supabase.from("reports").insert({
     reporter_id: reporterId,
     reported_id: reportedId,
-    reason: details ? `${reason}: ${details}` : reason,
+    reason: text,
+  });
+
+  if (!first.error) return;
+
+  const second = await supabase.from("reports").insert({
+    reporter_id: reporterId,
+    reported_id: reportedId,
+    reason: text,
     status: "open",
   });
 
-  if (error) throw error;
+  if (second.error) throw first.error || second.error;
 }

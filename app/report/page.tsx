@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { createReport } from "../../lib/reports";
+import { blockUser } from "../../lib/blocks";
 import { ArrowLeft } from "lucide-react";
 
 const REASONS = [
@@ -25,6 +26,7 @@ export default function ReportPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
   );
+  const [alsoBlock, setAlsoBlock] = useState(true);
 
   useEffect(() => {
     const init = async () => {
@@ -63,8 +65,17 @@ export default function ReportPage() {
         reason,
         details: details.trim() || undefined,
       });
+      if (alsoBlock) {
+        try {
+          await blockUser(userId, reportedId.trim());
+          setMessage("Report submitted. This person is also blocked.");
+        } catch {
+          setMessage("Report submitted. Block failed — use Block on Matches.");
+        }
+      } else {
+        setMessage("Report submitted. Thank you.");
+      }
       setStatus("success");
-      setMessage("Report submitted. Thank you.");
       setDetails("");
     } catch (err: any) {
       setStatus("error");
@@ -121,6 +132,15 @@ export default function ReportPage() {
             placeholder="Optional details"
             className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-rose-400"
           />
+
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={alsoBlock}
+              onChange={(e) => setAlsoBlock(e.target.checked)}
+            />
+            Also block this person
+          </label>
 
           <button
             type="submit"
