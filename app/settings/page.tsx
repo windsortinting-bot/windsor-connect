@@ -7,21 +7,16 @@ import LogoutButton from "../components/LogoutButton";
 import { ArrowLeft } from "lucide-react";
 
 const LINKS = [
-  { href: "/switch-account", label: "Switch account" },
-  { href: "/welcome-back", label: "Welcome back" },
-  { href: "/smoke", label: "Smoke test" },
-  { href: "/testers", label: "Tester list" },
-  { href: "/go", label: "Quick start" },
-  { href: "/settings/chat", label: "Chat settings" },
-  { href: "/settings/notifications", label: "Notifications" },
+  { href: "/tonight", label: "Do this next" },
+  { href: "/launch-test", label: "Launch test checklist" },
+  { href: "/testers", label: "Tester notes" },
   { href: "/filters", label: "Discovery filters" },
+  { href: "/onboarding", label: "Edit profile" },
+  { href: "/admin", label: "Admin" },
   { href: "/blocked", label: "Blocked users" },
   { href: "/pause", label: "Pause profile" },
-  { href: "/invite", label: "Invite codes" },
-  { href: "/support", label: "Support" },
   { href: "/safety", label: "Safety tips" },
-  { href: "/profile-score", label: "Profile strength" },
-  { href: "/settings/export", label: "Export my data" },
+  { href: "/support", label: "Support" },
   { href: "/delete-account", label: "Delete account" },
 ];
 
