@@ -157,10 +157,11 @@ export default function OnboardingPage() {
     e.preventDefault();
     if (!userId) return;
 
-    if (!firstName.trim() || !gender || !neighborhood) {
-      setMessage("Please fill first name, gender, and neighborhood");
+    if (!firstName.trim() || !gender) {
+      setMessage("Please fill first name and who you are");
       return;
     }
+    const homeTown = neighborhood || "Windsor";
     if (age < 18) {
       setMessage("You must be 18+");
       return;
@@ -175,7 +176,13 @@ export default function OnboardingPage() {
       age,
       gender,
       target_gender: targetGender,
-      neighborhood,
+      looking_for:
+        targetGender === "man"
+          ? "Men"
+          : targetGender === "woman"
+          ? "Women"
+          : "Everyone",
+      neighborhood: homeTown,
       bio: bio.trim(),
       height: height.trim() || null,
       kids_status: kidsStatus,
@@ -379,11 +386,19 @@ export default function OnboardingPage() {
             <label className="text-sm text-slate-400 block mb-2">Neighborhood</label>
             <select
               value={neighborhood}
-              onChange={(e) => setNeighborhood(e.target.value)}
-              required
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "__ALL__") {
+                  setPreferredNeighborhoods([...AREA_OPTIONS]);
+                  setNeighborhood("Windsor");
+                  return;
+                }
+                setNeighborhood(v);
+              }}
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-rose-500"
             >
               <option value="">Select</option>
+              <option value="__ALL__">Select all towns</option>
               {AREA_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   {n}

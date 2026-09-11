@@ -29,7 +29,6 @@ type ProfileRow = {
 type ReportRow = {
   id: string;
   reason: string | null;
-  status: string | null;
   created_at: string;
 };
 
@@ -110,7 +109,7 @@ export default function AdminDashboardPage() {
 
       const { data: latestReports } = await supabase
         .from("reports")
-        .select("id, reason, status, created_at")
+        .select("id, reason, created_at")
         .order("created_at", { ascending: false })
         .limit(5);
 
@@ -313,7 +312,7 @@ where id = 'YOUR-USER-ID';`}
           ) : (
             reports.map((r) => (
               <p key={r.id} className="text-sm text-slate-300 mb-2">
-                {r.reason || "No reason"} · {r.status || "open"}
+                {r.reason || "No reason given"}
               </p>
             ))
           )}
@@ -342,6 +341,20 @@ where id = 'YOUR-USER-ID';`}
           >
             <Users className="w-4 h-4 text-rose-400" />
             Users
+          </button>
+          <button
+            onClick={() => router.push("/admin/tester-notes")}
+            className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-xl py-3 text-sm"
+            type="button"
+          >
+            Tester notes
+          </button>
+          <button
+            onClick={() => router.push("/admin/tickets")}
+            className="w-full bg-slate-900 border border-slate-700 hover:bg-slate-800 rounded-xl py-3 text-sm"
+            type="button"
+          >
+            Support tickets
           </button>
         </div>
       </div>

@@ -9,13 +9,28 @@ import { ArrowLeft } from "lucide-react";
 
 type ReportRow = {
   id: string;
-  reporter_id: string;
-  reported_id: string;
-  reason: string | null;
-  created_at: string;
+  reporter_id?: string;
+  reported_id?: string;
+  reason?: string | null;
+  details?: string | null;
+  body?: string | null;
+  message?: string | null;
+  note?: string | null;
+  created_at?: string;
   reporter_name?: string;
   reported_name?: string;
 };
+
+function complaintText(r: ReportRow) {
+  return (
+    r.reason ||
+    r.details ||
+    r.body ||
+    r.message ||
+    r.note ||
+    "No complaint text saved"
+  );
+}
 
 export default function AdminReportsPage() {
   const router = useRouter();
@@ -49,7 +64,7 @@ export default function AdminReportsPage() {
 
     const { data, error } = await supabase
       .from("reports")
-      .select("id, reporter_id, reported_id, reason, created_at")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -62,10 +77,14 @@ export default function AdminReportsPage() {
 
     const list = (data as ReportRow[]) || [];
     const ids = Array.from(
-      new Set(list.flatMap((r) => [r.reporter_id, r.reported_id]).filter(Boolean))
+      new Set(
+        list
+          .flatMap((r) => [r.reporter_id, r.reported_id])
+          .filter((id): id is string => Boolean(id))
+      )
     );
 
-    let names: Record<string, string> = {};
+    const names: Record<string, string> = {};
     if (ids.length) {
       const { data: people } = await supabase
         .from("profiles")
@@ -79,8 +98,8 @@ export default function AdminReportsPage() {
     setRows(
       list.map((r) => ({
         ...r,
-        reporter_name: names[r.reporter_id] || r.reporter_id,
-        reported_name: names[r.reported_id] || r.reported_id,
+        reporter_name: (r.reporter_id && names[r.reporter_id]) || r.reporter_id,
+        reported_name: (r.reported_id && names[r.reported_id]) || r.reported_id,
       }))
     );
     setMessage("");
@@ -91,9 +110,9 @@ export default function AdminReportsPage() {
     load();
   }, [router]);
 
-  const handleBlock = async (reportedId: string) => {
-    if (!adminId) return;
-    const ok = window.confirm("Block this person from your admin account view / hide them?");
+  const handleBlock = async (reportedId?: string) => {
+    if (!adminId || !reportedId) return;
+    const ok = window.confirm("Block this person?");
     if (!ok) return;
     try {
       await blockUser(adminId, reportedId);
@@ -151,8 +170,8 @@ export default function AdminReportsPage() {
                 key={r.id}
                 className="bg-white border border-slate-200 rounded-2xl p-4"
               >
-                <p className="text-sm font-medium whitespace-pre-wrap">
-                  {r.reason || "No reason given"}
+                <p className="text-base font-semibold whitespace-pre-wrap">
+                  {complaintText(r)}
                 </p>
                 <p className="text-xs text-slate-500 mt-2">
                   {r.reporter_name} reported {r.reported_name}
@@ -161,20 +180,24 @@ export default function AdminReportsPage() {
                   {r.created_at ? timeAgo(r.created_at) : ""}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/u/${r.reported_id}`)}
-                    className="text-xs border border-slate-200 rounded-lg px-3 py-1.5"
-                  >
-                    View profile
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleBlock(r.reported_id)}
-                    className="text-xs border border-rose-200 text-rose-700 rounded-lg px-3 py-1.5"
-                  >
-                    Block
-                  </button>
+                  {r.reported_id && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/u/${r.reported_id}`)}
+                        className="text-xs border border-slate-200 rounded-lg px-3 py-1.5"
+                      >
+                        View profile
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBlock(r.reported_id)}
+                        className="text-xs border border-rose-200 text-rose-700 rounded-lg px-3 py-1.5"
+                      >
+                        Block
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

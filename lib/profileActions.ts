@@ -35,6 +35,12 @@ export async function saveFilters(params: {
     .from("profiles")
     .update({
       looking_for: lookingFor,
+      target_gender:
+        lookingFor === "Men"
+          ? "man"
+          : lookingFor === "Women"
+          ? "woman"
+          : "everyone",
       preferred_neighborhoods: preferredNeighborhoods,
     })
     .eq("id", userId);
