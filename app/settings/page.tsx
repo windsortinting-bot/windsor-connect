@@ -7,14 +7,14 @@ import LogoutButton from "../components/LogoutButton";
 import { ArrowLeft } from "lucide-react";
 
 const LINKS = [
-  { href: "/tonight", label: "Do this next" },
+  { href: "/go-live", label: "Go live" },
+  { href: "/invite-text", label: "Invite text" },
   { href: "/launch-test", label: "Launch test checklist" },
   { href: "/testers", label: "Tester notes" },
   { href: "/filters", label: "Discovery filters" },
   { href: "/onboarding", label: "Edit profile" },
   { href: "/admin", label: "Admin" },
   { href: "/blocked", label: "Blocked users" },
-  { href: "/pause", label: "Pause profile" },
   { href: "/safety", label: "Safety tips" },
   { href: "/support", label: "Support" },
   { href: "/delete-account", label: "Delete account" },
@@ -57,9 +57,7 @@ export default function SettingsPage() {
           <ArrowLeft className="w-4 h-4" />
           Profile
         </button>
-
         <h1 className="text-3xl font-bold mb-6">Settings</h1>
-
         <div className="space-y-3">
           {LINKS.map((l) => (
             <button
