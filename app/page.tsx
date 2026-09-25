@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
-// Change this if you pick a different Swipe Day.
 const LAUNCH_AT = "2026-10-24T19:00:00-04:00";
 
 type Parts = { days: number; hours: number; minutes: number; seconds: number };
@@ -48,16 +47,7 @@ export default function CountdownLanding() {
     }
     setStatus("loading");
     setMessage("");
-
-    let { error } = await supabase.from("waitlist").insert({ email: clean });
-    if (error) {
-      const retry = await supabase.from("waitlist").insert({
-        email: clean,
-        source: "countdown",
-      });
-      error = retry.error;
-    }
-
+    const { error } = await supabase.from("waitlist").insert({ email: clean });
     if (error) {
       setStatus("error");
       setMessage(
@@ -67,9 +57,8 @@ export default function CountdownLanding() {
       );
       return;
     }
-
     setStatus("success");
-    setMessage("You’re on the list. We’ll email you before Swipe Day.");
+    setMessage("Saved. Create your profile next so you’re ready on Swipe Day.");
     setEmail("");
   };
 
@@ -87,26 +76,29 @@ export default function CountdownLanding() {
           onClick={() => router.push("/auth")}
           className="text-sm text-slate-600"
         >
-          Already have an account? Sign in
+          Sign in
         </button>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto px-4 pb-16 w-full text-center">
-        <p className="text-rose-600 text-sm font-medium mt-8 mb-3">
-          Windsor · LaSalle · Tecumseh · Amherstburg
+      <main className="flex-1 max-w-md mx-auto px-4 pb-16 w-full">
+        <p className="text-rose-600 text-sm font-medium mt-6 mb-2 text-center">
+          Dating for Windsor and nearby
         </p>
-        <h1 className="text-4xl font-bold leading-tight mb-3">
-          Swipe Day is coming.
+        <h1 className="text-4xl font-bold leading-tight mb-3 text-center">
+          A dating site for people who live here.
         </h1>
-        <p className="text-slate-600 mb-8">
-          Local dating for people who actually live here. The deck opens
-          October 24. Leave your email. We’ll tell you when to show up.
+        <p className="text-slate-600 mb-6 text-center">
+          Match with people in Windsor, LaSalle, Tecumseh, Amherstburg and the
+          towns next door. Swiping opens October 24. Build your profile now.
+          On Swipe Day you’re already in the deck.
         </p>
 
         {live ? (
-          <p className="text-2xl font-bold mb-8">It’s Swipe Day. Sign in.</p>
+          <p className="text-2xl font-bold mb-6 text-center">
+            It’s Swipe Day. Sign in and swipe.
+          </p>
         ) : (
-          <div className="grid grid-cols-4 gap-2 mb-8">
+          <div className="grid grid-cols-4 gap-2 mb-6">
             {[
               ["Days", left.days],
               ["Hours", left.hours],
@@ -115,7 +107,7 @@ export default function CountdownLanding() {
             ].map(([label, value]) => (
               <div
                 key={String(label)}
-                className="bg-white rounded-2xl py-4 border border-rose-100"
+                className="bg-white rounded-2xl py-4 border border-rose-100 text-center"
               >
                 <p className="text-2xl font-bold tabular-nums">{value}</p>
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">
@@ -126,41 +118,49 @@ export default function CountdownLanding() {
           </div>
         )}
 
-        {status === "success" ? (
-          <div className="bg-white border-2 border-rose-300 rounded-2xl px-4 py-5 mb-6">
-            <p className="text-lg font-bold">You’re on the list</p>
-            <p className="text-sm text-slate-600 mt-1">{message}</p>
-          </div>
-        ) : (
-          <form onSubmit={joinList} className="space-y-3 mb-6">
-            <input
-              type="email"
-              name="email"
-              id="waitlist-email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Your email"
-              required
-              className="w-full bg-white border border-rose-200 rounded-xl px-4 py-3 outline-none focus:border-rose-400"
-            />
-            <button
-              type="submit"
-              disabled={status === "loading"}
-              className="w-full bg-rose-400 hover:bg-rose-500 disabled:opacity-60 text-white font-semibold py-3 rounded-xl"
-            >
-              {status === "loading" ? "Saving..." : "Notify me for Swipe Day"}
-            </button>
-          </form>
-        )}
-
-        {status === "error" && (
-          <p className="text-sm text-rose-700 mb-6">{message}</p>
-        )}
-
-        <p className="text-xs text-slate-500">
-          No swipe yet. This list is so launch day isn’t empty.
+        <button
+          type="button"
+          onClick={() => router.push("/auth")}
+          className="w-full bg-rose-400 hover:bg-rose-500 text-white font-semibold py-3 rounded-xl mb-3"
+        >
+          Create your profile
+        </button>
+        <p className="text-xs text-slate-500 text-center mb-8">
+          Photo, town, who you’re looking for. No swiping until October 24.
         </p>
+
+        <div className="bg-white border border-rose-100 rounded-2xl p-4">
+          <p className="font-medium mb-1">Just want a reminder?</p>
+          <p className="text-sm text-slate-500 mb-3">
+            Email only. We’ll tell you when Swipe Day starts.
+          </p>
+          {status === "success" ? (
+            <p className="text-sm font-semibold">{message}</p>
+          ) : (
+            <form onSubmit={joinList} className="space-y-2">
+              <input
+                type="email"
+                name="email"
+                id="waitlist-email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                className="w-full border border-rose-200 rounded-xl px-4 py-3 outline-none"
+              />
+              <button
+                type="submit"
+                disabled={status === "loading"}
+                className="w-full border border-rose-300 text-rose-800 font-medium py-2.5 rounded-xl"
+              >
+                {status === "loading" ? "Saving..." : "Email me on Swipe Day"}
+              </button>
+            </form>
+          )}
+          {status === "error" && (
+            <p className="text-sm text-rose-700 mt-2">{message}</p>
+          )}
+        </div>
       </main>
     </div>
   );
