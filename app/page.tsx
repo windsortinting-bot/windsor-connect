@@ -1,110 +1,167 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MapPin, Coffee, Sparkles, Beer, Utensils } from "lucide-react";
+import { Heart } from "lucide-react";
+import { supabase } from "../lib/supabaseClient";
 
-export default function LandingPage() {
+// Change this if you pick a different Swipe Day.
+const LAUNCH_AT = "2026-10-24T19:00:00-04:00";
+
+type Parts = { days: number; hours: number; minutes: number; seconds: number };
+
+function split(ms: number): Parts {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return {
+    days: Math.floor(s / 86400),
+    hours: Math.floor((s % 86400) / 3600),
+    minutes: Math.floor((s % 3600) / 60),
+    seconds: s % 60,
+  };
+}
+
+export default function CountdownLanding() {
   const router = useRouter();
+  const launch = useMemo(() => new Date(LAUNCH_AT).getTime(), []);
+  const [now, setNow] = useState(Date.now());
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
+    "idle"
+  );
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const left = split(launch - now);
+  const live = now >= launch;
+
+  const joinList = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = email.trim().toLowerCase();
+    if (!clean.includes("@")) {
+      setStatus("error");
+      setMessage("Enter a real email.");
+      return;
+    }
+    setStatus("loading");
+    setMessage("");
+
+    let { error } = await supabase.from("waitlist").insert({ email: clean });
+    if (error) {
+      const retry = await supabase.from("waitlist").insert({
+        email: clean,
+        source: "countdown",
+      });
+      error = retry.error;
+    }
+
+    if (error) {
+      setStatus("error");
+      setMessage(
+        error.message.includes("duplicate") || error.code === "23505"
+          ? "You’re already on the list."
+          : error.message
+      );
+      return;
+    }
+
+    setStatus("success");
+    setMessage("You’re on the list. We’ll email you before Swipe Day.");
+    setEmail("");
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center">
-              <Heart className="w-4 h-4 text-white fill-white" />
-            </div>
-            <span className="font-semibold text-white">Windsor Connect</span>
+    <div className="min-h-screen bg-[#f4e7e4] text-slate-900 flex flex-col">
+      <header className="px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-full bg-rose-400 flex items-center justify-center">
+            <Heart className="w-4 h-4 text-white fill-white" />
           </div>
-          <button
-            onClick={() => router.push("/auth")}
-            className="text-sm bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-xl"
-          >
-            Sign in
-          </button>
+          <span className="font-semibold">Windsor Connect</span>
         </div>
+        <button
+          type="button"
+          onClick={() => router.push("/auth")}
+          className="text-sm text-slate-600"
+        >
+          Already have an account? Sign in
+        </button>
       </header>
 
-      <main className="flex-1">
-        <section className="max-w-5xl mx-auto px-4 pt-14 pb-10 text-center">
-          <p className="text-rose-400 text-sm font-medium mb-3 flex items-center justify-center gap-1">
-            <MapPin className="w-4 h-4" />
-            Windsor, LaSalle, Tecumseh, Amherstburg & nearby
-          </p>
-          <h1 className="text-4xl sm:text-5xl font-bold text-white leading-tight mb-4">
-            Real connections across
-            <br />
-            Windsor and surrounding area
-          </h1>
-          <p className="text-slate-400 max-w-xl mx-auto mb-8">
-            A dating site for people in Windsor and the nearby towns. If you have
-            an invite code, create an account. If you already have one, sign in.
-          </p>
+      <main className="flex-1 max-w-md mx-auto px-4 pb-16 w-full text-center">
+        <p className="text-rose-600 text-sm font-medium mt-8 mb-3">
+          Windsor · LaSalle · Tecumseh · Amherstburg
+        </p>
+        <h1 className="text-4xl font-bold leading-tight mb-3">
+          Swipe Day is coming.
+        </h1>
+        <p className="text-slate-600 mb-8">
+          Local dating for people who actually live here. The deck opens
+          October 24. Leave your email. We’ll tell you when to show up.
+        </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-10">
+        {live ? (
+          <p className="text-2xl font-bold mb-8">It’s Swipe Day. Sign in.</p>
+        ) : (
+          <div className="grid grid-cols-4 gap-2 mb-8">
+            {[
+              ["Days", left.days],
+              ["Hours", left.hours],
+              ["Min", left.minutes],
+              ["Sec", left.seconds],
+            ].map(([label, value]) => (
+              <div
+                key={String(label)}
+                className="bg-white rounded-2xl py-4 border border-rose-100"
+              >
+                <p className="text-2xl font-bold tabular-nums">{value}</p>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  {label}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {status === "success" ? (
+          <div className="bg-white border-2 border-rose-300 rounded-2xl px-4 py-5 mb-6">
+            <p className="text-lg font-bold">You’re on the list</p>
+            <p className="text-sm text-slate-600 mt-1">{message}</p>
+          </div>
+        ) : (
+          <form onSubmit={joinList} className="space-y-3 mb-6">
+            <input
+              type="email"
+              name="email"
+              id="waitlist-email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Your email"
+              required
+              className="w-full bg-white border border-rose-200 rounded-xl px-4 py-3 outline-none focus:border-rose-400"
+            />
             <button
-              onClick={() => router.push("/auth")}
-              className="bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-90 text-white font-semibold px-6 py-3 rounded-xl"
+              type="submit"
+              disabled={status === "loading"}
+              className="w-full bg-rose-400 hover:bg-rose-500 disabled:opacity-60 text-white font-semibold py-3 rounded-xl"
             >
-              Create an account
+              {status === "loading" ? "Saving..." : "Notify me for Swipe Day"}
             </button>
-            <button
-              onClick={() => router.push("/help")}
-              className="bg-slate-900 border border-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl"
-            >
-              How it works
-            </button>
-          </div>
-        </section>
+          </form>
+        )}
 
-        <section className="max-w-5xl mx-auto px-4 pb-16">
-          <div className="grid sm:grid-cols-3 gap-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-4">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h3 className="font-semibold text-white mb-2">Local first</h3>
-              <p className="text-sm text-slate-400">
-                Windsor plus LaSalle, Amherstburg, Tecumseh, St. Clair Beach,
-                Harrow, Colchester, Essex, Kingsville, and Belle River.
-              </p>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
-                <Coffee className="w-5 h-5" />
-              </div>
-              <h3 className="font-semibold text-white mb-2">Meet nearby</h3>
-              <p className="text-sm text-slate-400">
-                Short drives. Public first dates. No 90-minute mystery trips.
-              </p>
-            </div>
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-4">
-                <Beer className="w-5 h-5" />
-              </div>
-              <h3 className="font-semibold text-white mb-2">Safer chat</h3>
-              <p className="text-sm text-slate-400">
-                Match tools, block/report, and simple safety tips.
-              </p>
-            </div>
-          </div>
+        {status === "error" && (
+          <p className="text-sm text-rose-700 mb-6">{message}</p>
+        )}
 
-          <div className="mt-10 bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
-              <Utensils className="w-5 h-5" />
-            </div>
-            <h3 className="font-semibold text-white">Windsor-area first dates</h3>
-            <p className="text-sm text-slate-400 mt-2">
-              Coffee in Walkerville, a patio in Tecumseh, or a walk by the river.
-            </p>
-          </div>
-        </section>
+        <p className="text-xs text-slate-500">
+          No swipe yet. This list is so launch day isn’t empty.
+        </p>
       </main>
-
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
-        © {new Date().getFullYear()} Windsor Connect. Built for the Windsor area.
-      </footer>
     </div>
   );
 }
