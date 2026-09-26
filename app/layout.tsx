@@ -4,7 +4,7 @@ import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: "Windsor Connect",
-  description: "Dating for Windsor, Ontario and nearby towns",
+  description: "A dating site for Windsor, Ontario and nearby towns",
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased" style={{ background: "#f7ebe4", color: "#2a1810" }}>
+      <body style={{ background: "#f4c9b8", color: "#2a1810" }}>
         <Providers>{children}</Providers>
       </body>
     </html>

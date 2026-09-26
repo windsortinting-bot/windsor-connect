@@ -1,7 +1,11 @@
-swipe-day-ad.mp4 now has a real audio track (AAC stereo).
-Play it in VLC or QuickTime first. If the phone is on silent, iPhone will mute videos in Photos.
+Sound files in this pack:
+1) public/ads/swipe-day-ad.mp4   — video WITH jazz audio (verified)
+2) public/ads/swipe-day-audio.mp3 — same jazz, standalone
 
-TikTok/Reels: upload the .mp4 file, not a screenshot. After upload, tap the volume icon if the preview is muted.
+How to hear it:
+- Open swipe-day-ad.mp4 in VLC on the PC first.
+- iPhone silent switch mutes Videos/Photos. Turn the ringer on.
+- TikTok often starts muted. After upload tap the speaker.
+- If TikTok still strips sound, create the Reel in CapCut: photos + swipe-day-audio.mp3.
 
-Music: "Lobby Time" by Kevin MacLeod (CC BY 3.0)
-https://incompetech.com
+Music: Lobby Time — Kevin MacLeod (CC BY 3.0)

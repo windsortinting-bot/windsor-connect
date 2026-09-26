@@ -63,40 +63,52 @@ export default function CountdownLanding() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4e7e4] text-slate-900 flex flex-col">
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: "#f4c9b8", color: "#2a1810" }}
+    >
       <header className="px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full bg-rose-400 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full bg-rose-500 flex items-center justify-center">
             <Heart className="w-4 h-4 text-white fill-white" />
           </div>
-          <span className="font-semibold">Windsor Connect</span>
+          <span className="font-bold">Windsor Connect</span>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/auth")}
-          className="text-sm text-slate-600"
-        >
+        <button type="button" onClick={() => router.push("/auth")} className="text-sm font-semibold">
           Sign in
         </button>
       </header>
 
       <main className="flex-1 max-w-md mx-auto px-4 pb-16 w-full">
-        <p className="text-rose-600 text-sm font-medium mt-6 mb-2 text-center">
-          Dating for Windsor and nearby
-        </p>
-        <h1 className="text-4xl font-bold leading-tight mb-3 text-center">
-          A dating site for people who live here.
+        <p className="text-center font-bold text-rose-800 mt-2">This is a dating site</p>
+        <h1 className="text-4xl font-extrabold leading-tight mb-3 text-center">
+          Meet people in Windsor who want to go on real dates.
         </h1>
-        <p className="text-slate-600 mb-6 text-center">
-          Match with people in Windsor, LaSalle, Tecumseh, Amherstburg and the
-          towns next door. Swiping opens October 24. Build your profile now.
-          On Swipe Day you’re already in the deck.
+        <p className="text-center font-medium mb-5" style={{ color: "#4a2f26" }}>
+          Men and women in Windsor, LaSalle, Tecumseh and Amherstburg. Build your
+          profile now. Swiping opens October 24.
         </p>
 
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          <img
+            src="/ads/couple-patio.jpg"
+            alt="Couple on a patio date"
+            className="w-full h-44 object-cover rounded-2xl"
+          />
+          <img
+            src="/ads/couple-river.jpg"
+            alt="Couple walking by the river"
+            className="w-full h-44 object-cover rounded-2xl"
+          />
+          <img
+            src="/ads/couple-toast.jpg"
+            alt="Couple toasting on a date"
+            className="w-full h-44 object-cover rounded-2xl col-span-2"
+          />
+        </div>
+
         {live ? (
-          <p className="text-2xl font-bold mb-6 text-center">
-            It’s Swipe Day. Sign in and swipe.
-          </p>
+          <p className="text-2xl font-bold mb-6 text-center">It’s Swipe Day. Sign in.</p>
         ) : (
           <div className="grid grid-cols-4 gap-2 mb-6">
             {[
@@ -107,12 +119,11 @@ export default function CountdownLanding() {
             ].map(([label, value]) => (
               <div
                 key={String(label)}
-                className="bg-white rounded-2xl py-4 border border-rose-100 text-center"
+                className="rounded-2xl py-4 text-center"
+                style={{ background: "#fff4ee" }}
               >
-                <p className="text-2xl font-bold tabular-nums">{value}</p>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                  {label}
-                </p>
+                <p className="text-2xl font-extrabold tabular-nums">{value}</p>
+                <p className="text-[11px] uppercase tracking-wide font-semibold">{label}</p>
               </div>
             ))}
           </div>
@@ -121,19 +132,16 @@ export default function CountdownLanding() {
         <button
           type="button"
           onClick={() => router.push("/auth")}
-          className="w-full bg-rose-400 hover:bg-rose-500 text-white font-semibold py-3 rounded-xl mb-3"
+          className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl mb-3"
         >
-          Create your profile
+          Create your dating profile
         </button>
-        <p className="text-xs text-slate-500 text-center mb-8">
-          Photo, town, who you’re looking for. No swiping until October 24.
+        <p className="text-sm text-center font-medium mb-8">
+          Photo, town, who you want to meet. No swiping until October 24.
         </p>
 
-        <div className="bg-white border border-rose-100 rounded-2xl p-4">
-          <p className="font-medium mb-1">Just want a reminder?</p>
-          <p className="text-sm text-slate-500 mb-3">
-            Email only. We’ll tell you when Swipe Day starts.
-          </p>
+        <div className="rounded-2xl p-4" style={{ background: "#fff4ee" }}>
+          <p className="font-bold mb-1">Just want a reminder?</p>
           {status === "success" ? (
             <p className="text-sm font-semibold">{message}</p>
           ) : (
@@ -146,20 +154,20 @@ export default function CountdownLanding() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full border border-rose-200 rounded-xl px-4 py-3 outline-none"
+                className="w-full rounded-xl px-4 py-3 outline-none"
+                style={{ background: "#fff", border: "1px solid #e8b9a6" }}
               />
               <button
                 type="submit"
                 disabled={status === "loading"}
-                className="w-full border border-rose-300 text-rose-800 font-medium py-2.5 rounded-xl"
+                className="w-full font-semibold py-2.5 rounded-xl"
+                style={{ border: "2px solid #e11d48", color: "#9f1239" }}
               >
                 {status === "loading" ? "Saving..." : "Email me on Swipe Day"}
               </button>
             </form>
           )}
-          {status === "error" && (
-            <p className="text-sm text-rose-700 mt-2">{message}</p>
-          )}
+          {status === "error" && <p className="text-sm text-rose-800 mt-2">{message}</p>}
         </div>
       </main>
     </div>
