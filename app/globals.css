@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f1f5f9;
-  --bg-card: #ffffff;
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --accent: #f43f5e;
+  --bg: #f7ebe4;
+  --bg-card: #fff8f4;
+  --text: #2a1810;
+  --muted: #6b4a3e;
+  --border: #edd5c8;
+  --accent: #e11d48;
 }
 
 html,
@@ -18,72 +18,108 @@ body {
 
 body {
   margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.55;
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
     Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-/* Soften pure-black screens without rewriting every page */
-.min-h-screen.bg-slate-950 {
-  background: #f1f5f9 !important;
-  color: #0f172a !important;
+h1,
+h2,
+h3 {
+  font-weight: 750;
+  color: #2a1810;
 }
 
-.bg-slate-950 {
-  background-color: #f1f5f9 !important;
+p,
+label,
+button,
+a,
+li {
+  font-weight: 500;
 }
 
-.bg-slate-900 {
-  background-color: #ffffff !important;
+button {
+  font-size: 16px;
+}
+
+.min-h-screen.bg-slate-950,
+.min-h-screen.bg-slate-100,
+.min-h-screen.bg-\[\#f4e7e4\] {
+  background: #f7ebe4 !important;
+  color: #2a1810 !important;
+}
+
+.bg-slate-950,
+.bg-slate-100,
+.bg-slate-50 {
+  background-color: #f7ebe4 !important;
+}
+
+.bg-slate-900,
+.bg-white {
+  background-color: #fff8f4 !important;
 }
 
 .bg-slate-900\/50,
 .bg-slate-900\/95 {
-  background-color: rgba(255, 255, 255, 0.95) !important;
+  background-color: rgba(255, 248, 244, 0.96) !important;
 }
 
 .bg-slate-800 {
-  background-color: #f8fafc !important;
+  background-color: #f3ddd3 !important;
 }
 
 .border-slate-800,
 .border-slate-700,
-.border-slate-900 {
-  border-color: #e2e8f0 !important;
+.border-slate-900,
+.border-slate-200 {
+  border-color: #edd5c8 !important;
 }
 
-.text-white {
-  color: #0f172a !important;
+.text-white,
+.text-slate-900 {
+  color: #2a1810 !important;
 }
 
 .text-slate-300,
-.text-slate-200 {
-  color: #334155 !important;
+.text-slate-200,
+.text-slate-700 {
+  color: #3f2a22 !important;
 }
 
 .text-slate-400,
 .text-slate-500,
 .text-slate-600 {
-  color: #64748b !important;
+  color: #6b4a3e !important;
 }
 
-/* Keep rose accents readable on light bg */
+.text-xs {
+  font-size: 0.8rem !important;
+}
+
+.text-sm {
+  font-size: 0.975rem !important;
+}
+
 .text-rose-400 {
-  color: #e11d48 !important;
+  color: #be123c !important;
 }
 
 .from-rose-500 {
-  --tw-gradient-from: #f43f5e !important;
+  --tw-gradient-from: #e11d48 !important;
 }
 
-/* Inputs stay readable */
 input,
 textarea,
 select {
-  color: #0f172a;
+  color: #2a1810;
+  font-size: 16px;
+  font-weight: 500;
 }
 
-/* Bottom nav stays readable */
 nav.fixed {
-  background: rgba(255, 255, 255, 0.96) !important;
-  border-color: #e2e8f0 !important;
+  background: rgba(255, 248, 244, 0.97) !important;
+  border-color: #edd5c8 !important;
 }

@@ -1,8 +1,7 @@
-Video: public/ads/swipe-day-ad.mp4
-Music: "Lobby Time" by Kevin MacLeod, CC BY 3.0
-https://incompetech.com
-Quiet jazz bed under stills. First frame now says A DATING SITE FOR WINDSOR.
+swipe-day-ad.mp4 now has a real audio track (AAC stereo).
+Play it in VLC or QuickTime first. If the phone is on silent, iPhone will mute videos in Photos.
 
-Talking caption if you film yourself:
-This is a dating site for Windsor. Not Toronto. Not Detroit.
-Create your profile now. Swiping starts October 24.
+TikTok/Reels: upload the .mp4 file, not a screenshot. After upload, tap the volume icon if the preview is muted.
+
+Music: "Lobby Time" by Kevin MacLeod (CC BY 3.0)
+https://incompetech.com
