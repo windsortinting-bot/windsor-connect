@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
-const LAUNCH_AT = "2026-10-24T19:00:00-04:00";
+const LAUNCH_AT = "2026-11-01T19:00:00-04:00";
 
 type Parts = { days: number; hours: number; minutes: number; seconds: number };
 
@@ -79,32 +79,23 @@ export default function CountdownLanding() {
         </button>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto px-4 pb-16 w-full">
-        <p className="text-center font-bold text-rose-800 mt-2">This is a dating site</p>
+      <main className="flex-1 max-w-md mx-auto px-4 pb-28 w-full">
+        <p className="text-center font-bold text-rose-800 mt-2">
+          A dating site for Windsor, Ontario
+        </p>
         <h1 className="text-4xl font-extrabold leading-tight mb-3 text-center">
-          Meet people in Windsor who want to go on real dates.
+          Meet people who live here. Not Detroit. Not Michigan.
         </h1>
         <p className="text-center font-medium mb-5" style={{ color: "#4a2f26" }}>
-          Men and women in Windsor, LaSalle, Tecumseh and Amherstburg. Build your
-          profile now. Swiping opens October 24.
+          Windsor, LaSalle, Tecumseh, Amherstburg and nearby Ontario towns.
+          Build your profile now. Swiping opens November 1.
         </p>
 
         <div className="grid grid-cols-2 gap-2 mb-5">
-          <img
-            src="/ads/couple-patio.jpg"
-            alt="Couple on a patio date"
-            className="w-full h-44 object-cover rounded-2xl"
-          />
-          <img
-            src="/ads/couple-river.jpg"
-            alt="Couple walking by the river"
-            className="w-full h-44 object-cover rounded-2xl"
-          />
-          <img
-            src="/ads/couple-toast.jpg"
-            alt="Couple toasting on a date"
-            className="w-full h-44 object-cover rounded-2xl col-span-2"
-          />
+          <img src="/ads/couple-picnic.jpg" alt="Couple on a picnic" className="w-full h-40 object-cover rounded-2xl" />
+          <img src="/ads/couple-bikes.jpg" alt="Couple biking" className="w-full h-40 object-cover rounded-2xl" />
+          <img src="/ads/couple-dance.jpg" alt="Couple dancing" className="w-full h-40 object-cover rounded-2xl" />
+          <img src="/ads/couple-river.jpg" alt="Couple by the river" className="w-full h-40 object-cover rounded-2xl" />
         </div>
 
         {live ? (
@@ -117,11 +108,7 @@ export default function CountdownLanding() {
               ["Min", left.minutes],
               ["Sec", left.seconds],
             ].map(([label, value]) => (
-              <div
-                key={String(label)}
-                className="rounded-2xl py-4 text-center"
-                style={{ background: "#fff4ee" }}
-              >
+              <div key={String(label)} className="rounded-2xl py-4 text-center" style={{ background: "#fff4ee" }}>
                 <p className="text-2xl font-extrabold tabular-nums">{value}</p>
                 <p className="text-[11px] uppercase tracking-wide font-semibold">{label}</p>
               </div>
@@ -136,8 +123,8 @@ export default function CountdownLanding() {
         >
           Create your dating profile
         </button>
-        <p className="text-sm text-center font-medium mb-8">
-          Photo, town, who you want to meet. No swiping until October 24.
+        <p className="text-sm text-center font-medium mb-6">
+          Photo, town, who you want to meet. No swiping until November 1.
         </p>
 
         <div className="rounded-2xl p-4" style={{ background: "#fff4ee" }}>

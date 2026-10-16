@@ -1,11 +1,17 @@
-Sound files in this pack:
-1) public/ads/swipe-day-ad.mp4   — video WITH jazz audio (verified)
-2) public/ads/swipe-day-audio.mp3 — same jazz, standalone
+New ad: public/ads/swipe-day-ad.mp4
+Standalone audio: public/ads/swipe-day-audio.mp3
 
-How to hear it:
-- Open swipe-day-ad.mp4 in VLC on the PC first.
-- iPhone silent switch mutes Videos/Photos. Turn the ringer on.
-- TikTok often starts muted. After upload tap the speaker.
-- If TikTok still strips sound, create the Reel in CapCut: photos + swipe-day-audio.mp3.
+Music: "Somewhere Sunny" by Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 3.0
+http://creativecommons.org/licenses/by/3.0/
 
-Music: Lobby Time — Kevin MacLeod (CC BY 3.0)
+Bright acoustic guitar, not lobby jazz.
+
+Frames say:
+- A dating site, only for Windsor, not Detroit
+- Windsor Ontario, LaSalle, Tecumseh, Amherstburg
+- Not Detroit, not Michigan
+- Swipe Day November 1
+- Create your profile
+
+Play in VLC first. Phone silent mode mutes videos. TikTok may start muted — tap the speaker.
